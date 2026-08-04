@@ -1,0 +1,229 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  User,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  createUserWithEmailAndPassword,
+  signOut,
+  updateProfile as firebaseUpdateProfile,
+  sendPasswordResetEmail,
+  GoogleAuthProvider,
+} from "firebase/auth";
+import Cookies from "js-cookie";
+import { auth } from "@/lib/firebaseClient";
+import { checkAdminAccess } from "@/lib/admin";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebaseClient";
+
+type UserRole = "user" | "premium" | "admin";
+
+interface AuthContextValue {
+  user: User | null;
+  loading: boolean;
+  role: UserRole;
+  error: string | null;
+  signUpWithEmail: (
+    email: string,
+    password: string,
+    displayName: string
+  ) => Promise<void>;
+  loginWithEmail: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+  logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updateProfile: (data: {
+    displayName?: string;
+    photoURL?: string;
+  }) => Promise<void>;
+  isAdmin: () => boolean;
+  isPremium: () => boolean;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+async function resolveRole(firebaseUser: User): Promise<UserRole> {
+  if (checkAdminAccess(firebaseUser.email)) return "admin";
+
+  try {
+    const usersSnap = await getDoc(doc(db, "users", firebaseUser.uid));
+    if (usersSnap.exists()) {
+      const data = usersSnap.data();
+      if (data.role === "admin" || data.role === "premium") {
+        return data.role;
+      }
+    }
+  } catch {
+    // Fall back to default role
+  }
+
+  return "user";
+}
+
+async function syncAuthCookies(
+  firebaseUser: User | null,
+  role: UserRole
+): Promise<void> {
+  if (firebaseUser) {
+    const token = await firebaseUser.getIdToken();
+    Cookies.set("firebase-token", token, { expires: 7, sameSite: "lax" });
+    Cookies.set("user-role", role, { expires: 7, sameSite: "lax" });
+  } else {
+    Cookies.remove("firebase-token");
+    Cookies.remove("user-role");
+  }
+}
+
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState<UserRole>("user");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    auth.authStateReady().then(() => {
+      if (!auth.currentUser) {
+        Cookies.remove("firebase-token");
+        Cookies.remove("user-role");
+      }
+    });
+
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      try {
+        if (firebaseUser) {
+          const userRole = await resolveRole(firebaseUser);
+          setRole(userRole);
+          setUser(firebaseUser);
+          await syncAuthCookies(firebaseUser, userRole);
+        } else {
+          setUser(null);
+          setRole("user");
+          await syncAuthCookies(null, "user");
+        }
+      } catch (err) {
+        console.error("Auth state sync error:", err);
+        setUser(firebaseUser);
+        setRole("user");
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const loginWithGoogle = useCallback(async () => {
+    setError(null);
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  }, []);
+
+  const loginWithEmail = useCallback(async (email: string, password: string) => {
+    setError(null);
+    await signInWithEmailAndPassword(auth, email, password);
+  }, []);
+
+  const signUpWithEmail = useCallback(
+    async (email: string, password: string, displayName: string) => {
+      setError(null);
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      await firebaseUpdateProfile(result.user, { displayName });
+      await setDoc(doc(db, "users", result.user.uid), {
+        uid: result.user.uid,
+        email,
+        displayName,
+        role: "user",
+        createdAt: new Date().toISOString(),
+      });
+    },
+    []
+  );
+
+  const logout = useCallback(async () => {
+    setError(null);
+    await signOut(auth);
+    Cookies.remove("firebase-token");
+    Cookies.remove("user-role");
+    setUser(null);
+    setRole("user");
+  }, []);
+
+  const resetPassword = useCallback(async (email: string) => {
+    setError(null);
+    await sendPasswordResetEmail(auth, email);
+  }, []);
+
+  const updateProfile = useCallback(
+    async (data: { displayName?: string; photoURL?: string }) => {
+      if (!auth.currentUser) throw new Error("Not authenticated");
+      await firebaseUpdateProfile(auth.currentUser, data);
+      if (auth.currentUser.uid) {
+        await setDoc(
+          doc(db, "users", auth.currentUser.uid),
+          { ...data, updatedAt: new Date().toISOString() },
+          { merge: true }
+        );
+      }
+      setUser({ ...auth.currentUser });
+    },
+    []
+  );
+
+  const isAdmin = useCallback(() => role === "admin", [role]);
+  const isPremium = useCallback(
+    () => role === "premium" || role === "admin",
+    [role]
+  );
+
+  const value = useMemo(
+    () => ({
+      user,
+      loading,
+      role,
+      error,
+      signUpWithEmail,
+      loginWithEmail,
+      loginWithGoogle,
+      logout,
+      resetPassword,
+      updateProfile,
+      isAdmin,
+      isPremium,
+    }),
+    [
+      user,
+      loading,
+      role,
+      error,
+      signUpWithEmail,
+      loginWithEmail,
+      loginWithGoogle,
+      logout,
+      resetPassword,
+      updateProfile,
+      isAdmin,
+      isPremium,
+    ]
+  );
+
+  return (
+    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+  return context;
+};

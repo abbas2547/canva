@@ -1,65 +1,123 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useAuth } from "@/context/AuthContext";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseData";
+import Link from "next/link";
+
+export default function LandingPage() {
+  const { user } = useAuth();
+  const [totalDesigns, setTotalDesigns] = useState<number>(0);
+
+  // Fetch Public Stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const { count, error } = await supabase
+          .from("designs")
+          .select("*", {
+            count: "exact",
+            head: true,
+          });
+
+        if (error) {
+          console.error("Fetch Stats Error:", error.message);
+          return;
+        }
+
+        setTotalDesigns(count || 0);
+      } catch (error) {
+        console.error("Unexpected Stats Error:", error);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="relative min-h-screen pt-20 overflow-hidden bg-[#020617] text-white flex flex-col justify-between">
+      {/* Background Glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-gradient-to-b from-purple-900/20 to-transparent blur-3xl" />
+
+      {/* HERO */}
+      <section className="relative max-w-7xl mx-auto px-6 py-20 text-center flex-grow">
+        {/* Badge */}
+        <span className="px-4 py-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 text-purple-400 text-sm font-medium mb-6 inline-block">
+          {totalDesigns > 0
+            ? `${totalDesigns} Designs Created Already`
+            : "AI-Powered Design Platform"}
+        </span>
+
+        {/* Heading */}
+        <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight mb-8 leading-tight">
+          Design Anything
+          <br />
+          <span className="bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+            Beautifully
+          </span>
+        </h1>
+
+        {/* Description */}
+        <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
+          Create stunning graphics, social posts, presentations, thumbnails, and more
+          using your own AI-powered design studio.
+        </p>
+
+        {/* Dynamic Main Action Buttons */}
+        <div className="flex flex-wrap justify-center gap-4 mb-16">
+          {user ? (
+            <Link
+              href="/dashboard"
+              className="px-8 py-4 bg-white text-black font-bold rounded-xl hover:scale-105 transition-all"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Go To Dashboard
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="px-8 py-4 bg-white text-black font-bold rounded-xl hover:scale-105 transition-all"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+              Start Designing Free
+            </Link>
+          )}
+
+          <Link
+            href="/editor"
+            className="px-8 py-4 bg-slate-800 text-white font-bold rounded-xl border border-slate-700 hover:bg-slate-700 transition-all"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+            Explore Editor
+          </Link>
+        </div>
+
+        {/* Preview */}
+        <div className="mt-20 relative mx-auto max-w-6xl group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl blur opacity-25"></div>
+          <div className="relative bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+            <img
+              src="https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&q=80&w=2000"
+              alt="Editor Preview"
+              className="w-full object-cover opacity-80"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
         </div>
-      </main>
+      </section>
+
+      {/* DEV & PROJECT NAVIGATION FOOTER */}
+      <footer className="relative z-10 w-full border-t border-slate-800 bg-slate-950/60 backdrop-blur-md py-6 mt-20">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-400">
+          <p className="font-semibold text-gray-300">Project Routes Quick Links:</p>
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+            <Link href="/dashboard" className="hover:text-cyan-400 transition-colors">Dashboard</Link>
+            <Link href="/editor" className="hover:text-cyan-400 transition-colors">Editor</Link>
+            <Link href="/editor/design-1" className="hover:text-cyan-400 transition-colors">Editor (Design-1)</Link>
+            <Link href="/pricing" className="hover:text-cyan-400 transition-colors">Pricing</Link>
+            <Link href="/profile" className="hover:text-cyan-400 transition-colors">Profile</Link>
+            <Link href="/login" className="hover:text-cyan-400 transition-colors">Login</Link>
+            <Link href="/signup" className="hover:text-cyan-400 transition-colors">Signup</Link>
+            <Link href="/forgot-password" className="hover:text-cyan-400 transition-colors">Forgot Password</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

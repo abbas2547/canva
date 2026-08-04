@@ -4,34 +4,51 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { Mail, LogOut, Trash2, Check } from "lucide-react";
+import { Mail, LogOut, Trash2, Check, X } from "lucide-react";
 
 export default function ProfilePage() {
   const { user, loading, logout, updateProfile } = useAuth();
   const router = useRouter();
+
   const [editMode, setEditMode] = useState(false);
-  const [formData, setFormData] = useState({ displayName: "" });
+  const [formData, setFormData] = useState({
+    displayName: "",
+  });
   const [saving, setSaving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
+  // Redirect unauthenticated users
   useEffect(() => {
     if (!loading && !user) {
-      router.push("/login");
-      return;
-    }
-    if (user?.displayName) {
-      setFormData({ displayName: user.displayName });
+      router.replace("/login");
     }
   }, [user, loading, router]);
 
+  // Load user data into the form
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        displayName: user.displayName || "",
+      });
+    }
+  }, [user]);
+
+  // Save profile
   const handleSaveProfile = async () => {
-    if (!formData.displayName.trim()) {
+    const displayName = formData.displayName.trim();
+
+    if (!displayName) {
       toast.error("Name cannot be empty");
       return;
     }
+
     try {
       setSaving(true);
-      await updateProfile({ displayName: formData.displayName });
+
+      await updateProfile({
+        displayName,
+      });
+
       toast.success("Profile updated successfully");
       setEditMode(false);
     } catch (error) {
@@ -42,79 +59,135 @@ export default function ProfilePage() {
     }
   };
 
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setFormData({
+      displayName: user?.displayName || "",
+    });
+
+    setEditMode(false);
+  };
+
+  // Logout
   const handleLogout = async () => {
     try {
       await logout();
+
       toast.success("Logged out successfully");
-      router.push("/login");
+      router.replace("/login");
     } catch (error) {
       console.error("Logout error:", error);
       toast.error("Failed to logout");
     }
   };
 
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-        <div className="text-white">Loading...</div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 rounded-full border-4 border-slate-600 border-t-indigo-500 animate-spin" />
+          <p className="text-slate-300">Loading profile...</p>
+        </div>
       </div>
     );
   }
 
+  // User isn't authenticated
   if (!user) {
     return null;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 pt-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-4xl font-bold text-white mb-8">Account Settings</h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-2xl">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white sm:text-4xl">
+            Account Settings
+          </h1>
 
-        {/* Profile Section */}
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold text-white mb-4">Profile Information</h2>
+          <p className="mt-2 text-slate-400">
+            Manage your profile and account settings.
+          </p>
+        </div>
 
-          <div className="space-y-4">
+        {/* Profile Information */}
+        <div className="mb-6 rounded-xl border border-slate-700/50 bg-slate-800/50 p-6 shadow-xl">
+          <h2 className="mb-6 text-xl font-semibold text-white">
+            Profile Information
+          </h2>
+
+          <div className="space-y-5">
             {/* Email */}
             <div>
-              <label className="text-sm font-medium text-slate-400 block mb-2">Email</label>
-              <div className="flex items-center gap-2 px-4 py-3 bg-slate-700/30 border border-slate-600/30 rounded-lg text-slate-300">
-                <Mail className="h-5 w-5" />
-                <span>{user.email}</span>
+              <label className="mb-2 block text-sm font-medium text-slate-400">
+                Email
+              </label>
+
+              <div className="flex items-center gap-3 rounded-lg border border-slate-600/30 bg-slate-700/30 px-4 py-3 text-slate-300">
+                <Mail className="h-5 w-5 shrink-0 text-slate-400" />
+
+                <span className="truncate">
+                  {user.email || "No email available"}
+                </span>
               </div>
             </div>
 
             {/* Display Name */}
             <div>
-              <label className="text-sm font-medium text-slate-400 block mb-2">Display Name</label>
+              <label className="mb-2 block text-sm font-medium text-slate-400">
+                Display Name
+              </label>
+
               {editMode ? (
-                <div className="flex gap-2">
+                <div className="space-y-3">
                   <input
                     type="text"
                     value={formData.displayName}
-                    onChange={(e) => setFormData({ displayName: e.target.value })}
-                    className="flex-1 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-indigo-500"
-                  />
-                  <button
-                    onClick={handleSaveProfile}
+                    onChange={(e) =>
+                      setFormData({
+                        displayName: e.target.value,
+                      })
+                    }
+                    placeholder="Enter your display name"
                     disabled={saving}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg disabled:opacity-50 transition flex items-center gap-2"
-                  >
-                    {saving ? "Saving..." : <><Check className="h-5 w-5" /> Save</>}
-                  </button>
-                  <button
-                    onClick={() => setEditMode(false)}
-                    className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition"
-                  >
-                    Cancel
-                  </button>
+                    className="w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={handleSaveProfile}
+                      disabled={saving}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Check className="h-5 w-5" />
+
+                      {saving ? "Saving..." : "Save Changes"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      disabled={saving}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-slate-700 px-4 py-2.5 text-white transition hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <X className="h-5 w-5" />
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between px-4 py-3 bg-slate-700/30 border border-slate-600/30 rounded-lg">
-                  <span className="text-slate-300">{user.displayName || "Not set"}</span>
+                <div className="flex flex-col gap-3 rounded-lg border border-slate-600/30 bg-slate-700/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-slate-300">
+                    {user.displayName || "Not set"}
+                  </span>
+
                   <button
+                    type="button"
                     onClick={() => setEditMode(true)}
-                    className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded transition"
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
                   >
                     Edit
                   </button>
@@ -122,68 +195,116 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* Subscription Status */}
+            {/* Subscription */}
             <div>
-              <label className="text-sm font-medium text-slate-400 block mb-2">Current Plan</label>
-              <div className="px-4 py-3 bg-slate-700/30 border border-slate-600/30 rounded-lg">
-                <p className="text-slate-300 capitalize">{user.subscriptionPlan || "free"}</p>
+              <label className="mb-2 block text-sm font-medium text-slate-400">
+                Current Plan
+              </label>
+
+              <div className="flex items-center justify-between rounded-lg border border-slate-600/30 bg-slate-700/30 px-4 py-3">
+                <div>
+                  <p className="font-medium capitalize text-white">Free</p>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Current account plan
+                  </p>
+                </div>
+
+                <span className="rounded-full bg-slate-600/50 px-3 py-1 text-xs font-medium text-slate-300">
+                  Free
+                </span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Danger Zone */}
-        <div className="bg-red-950/20 border border-red-800/30 rounded-lg p-6">
-          <h2 className="text-xl font-semibold text-red-400 mb-4">Danger Zone</h2>
+        <div className="rounded-xl border border-red-800/30 bg-red-950/20 p-6">
+          <h2 className="mb-2 text-xl font-semibold text-red-400">
+            Danger Zone
+          </h2>
+
+          <p className="mb-5 text-sm text-slate-400">
+            These actions affect your account. Please use them carefully.
+          </p>
 
           <div className="space-y-3">
+            {/* Logout */}
             <button
+              type="button"
               onClick={handleLogout}
-              className="w-full flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-3 font-medium text-white transition hover:bg-red-700"
             >
               <LogOut className="h-5 w-5" />
               Logout
             </button>
 
+            {/* Delete Account */}
             <button
+              type="button"
               onClick={() => setShowDeleteModal(true)}
-              className="w-full flex items-center gap-2 px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-lg transition"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-700 px-4 py-3 font-medium text-white transition hover:bg-red-800"
             >
               <Trash2 className="h-5 w-5" />
               Delete Account
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Delete Modal */}
-        {showDeleteModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-md w-full">
-              <h3 className="text-xl font-semibold text-white mb-4">Delete Account</h3>
-              <p className="text-slate-400 mb-6">
-                This action cannot be undone. All your designs and data will be permanently deleted.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowDeleteModal(false)}
-                  className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    toast.error("Account deletion not yet implemented");
-                    setShowDeleteModal(false);
-                  }}
-                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
-                >
-                  Delete
-                </button>
-              </div>
+      {/* Delete Account Modal */}
+      {showDeleteModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+          onClick={() => setShowDeleteModal(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-800 p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-xl font-semibold text-white">
+                Delete Account
+              </h3>
+
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-700 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="mb-6 text-sm leading-6 text-slate-400">
+              This action cannot be undone. Your account and associated data
+              may be permanently deleted.
+            </p>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 rounded-lg bg-slate-700 px-4 py-2.5 font-medium text-white transition hover:bg-slate-600"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  toast.error("Account deletion is not implemented yet.");
+                  setShowDeleteModal(false);
+                }}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 font-medium text-white transition hover:bg-red-700"
+              >
+                Delete Account
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
+

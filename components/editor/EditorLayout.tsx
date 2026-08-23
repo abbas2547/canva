@@ -11,10 +11,18 @@ import {
   Palette,
   Layers3,
   Settings2,
+  Download,
+  Share2,
+  Undo2,
+  Redo2,
+  Sparkles,
+  X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 import { useEditorStore } from "@/store/editorStore";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 
 import EditorSidebar from "./EditorSidebar";
 import EditorTopbar from "./EditorTopbar";
@@ -31,6 +39,7 @@ import StickersPanel from "./panels/StickersPanel";
 import BackgroundPanel from "./panels/BackgroundPanel";
 import LayersPanel from "./panels/LayersPanel";
 import { useDesignSync } from "@/hooks/useDesignSync";
+import ShareModal from "./ShareModal";
 
 function ToolPanel() {
   const activeTool = useEditorStore(
@@ -265,12 +274,15 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
   const showLeftSidebar = useEditorStore((state) => state.showLeftSidebar);
   const showRightSidebar = useEditorStore((state) => state.showRightSidebar);
   const setShowRightSidebar = useEditorStore((state) => state.setShowRightSidebar);
+  const setShowLeftSidebar = useEditorStore((state) => state.setShowLeftSidebar);
   const rightPanel = useEditorStore((state) => state.rightPanel);
   const setRightPanel = useEditorStore((state) => state.setRightPanel);
   const showAIChat = useEditorStore((state) => state.showAIChat);
   const setShowAIChat = useEditorStore((state) => state.setShowAIChat);
   const canvas = useEditorStore((state) => state.canvas);
-  const { autoSave, loadDesign } = useDesignSync();
+  const { autoSave, loadDesign, saveDesign } = useDesignSync();
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const designId = useEditorStore((state) => state.designId);
 
   // Initialize design ID from props if provided
   useEffect(() => {
@@ -310,21 +322,38 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, []);
+
+  const handleMobileExport = useCallback(() => {
+    if (!canvas) return;
+    try {
+      const dataURL = canvas.toDataURL({
+        format: "png",
+        multiplier: 2,
+        quality: 1,
+      });
+      const link = document.createElement("a");
+      link.href = dataURL;
+      link.download = "design.png";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Export failed:", error);
+    }
+  }, [canvas]);
+
   return (
-    <div className="flex h-screen w-full flex-col overflow-hidden bg-white">
+    <div className="flex h-dvh w-full flex-col overflow-hidden bg-white">
 
       {/* TOPBAR */}
-
       <div className="shrink-0">
         <EditorTopbar />
       </div>
 
       {/* EDITOR */}
-
       <div className="flex min-h-0 flex-1 overflow-hidden">
 
         {/* LEFT ICON SIDEBAR - desktop only */}
-
         {showLeftSidebar && (
         <div
           className="
@@ -344,7 +373,6 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
         )}
 
         {/* TOOL PANEL - desktop only */}
-
         {showLeftSidebar && (
         <div className="hidden lg:flex">
           <ToolPanel />
@@ -352,7 +380,6 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
         )}
 
         {/* CANVAS */}
-
         <main
           className="
             min-h-0
@@ -365,7 +392,6 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
         </main>
 
         {/* AI / PROPERTIES PANEL - desktop */}
-
         {showRightSidebar && (
         <aside
           className="
@@ -422,8 +448,20 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
             className="absolute inset-0 bg-black/40"
             onClick={() => useEditorStore.getState().setShowLeftSidebar(false)}
           />
-          <div className="absolute left-0 top-0 bottom-0 w-[300px] bg-white shadow-2xl flex flex-col">
-            <ToolPanel />
+          <div className="absolute left-0 top-0 bottom-0 w-[85vw] max-w-[340px] bg-white shadow-2xl flex flex-col">
+            {/* Close button */}
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <h3 className="text-sm font-semibold text-slate-900">Tools</h3>
+              <button
+                onClick={() => useEditorStore.getState().setShowLeftSidebar(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <ToolPanel />
+            </div>
           </div>
         </div>
       )}
@@ -435,12 +473,13 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
             className="absolute inset-0 bg-black/40"
             onClick={() => useEditorStore.getState().setShowRightSidebar(false)}
           />
-          <div className="absolute right-0 top-0 bottom-0 w-[320px] bg-white shadow-2xl flex flex-col">
-            <div className="flex shrink-0 border-b border-slate-200">
+          <div className="absolute right-0 top-0 bottom-0 w-[85vw] max-w-[360px] bg-white shadow-2xl flex flex-col">
+            {/* Close button + Panel Toggle */}
+            <div className="flex shrink-0 items-center border-b border-slate-200">
               <button
                 type="button"
                 onClick={() => { setRightPanel("properties"); }}
-                className={`flex-1 py-2.5 text-xs font-semibold transition ${
+                className={`flex-1 py-3 text-xs font-semibold transition ${
                   rightPanel === "properties"
                     ? "text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50"
                     : "text-slate-500 hover:text-slate-700"
@@ -451,7 +490,7 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
               <button
                 type="button"
                 onClick={() => { setRightPanel("ai"); setShowAIChat(true); }}
-                className={`flex-1 py-2.5 text-xs font-semibold transition ${
+                className={`flex-1 py-3 text-xs font-semibold transition ${
                   rightPanel === "ai"
                     ? "text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50"
                     : "text-slate-500 hover:text-slate-700"
@@ -459,52 +498,134 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
               >
                 AI Assistant
               </button>
+              <button
+                onClick={() => useEditorStore.getState().setShowRightSidebar(false)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center text-slate-500 hover:bg-slate-100"
+              >
+                <X size={18} />
+              </button>
             </div>
-            {rightPanel === "ai" && showAIChat ? (
-              <AIPanel />
-            ) : (
-              <PropertyPanel />
-            )}
+            <div className="flex-1 overflow-hidden">
+              {rightPanel === "ai" && showAIChat ? (
+                <AIPanel />
+              ) : (
+                <PropertyPanel />
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* MOBILE BOTTOM TOOLBAR */}
-      <div className="shrink-0 border-t border-slate-200 bg-white flex items-center justify-around py-2 px-1 lg:hidden">
-        <button
-          type="button"
-          onClick={() => useEditorStore.getState().setShowLeftSidebar(!showLeftSidebar)}
-          className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
-          <span className="text-[9px] font-medium">Tools</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => useEditorStore.getState().undo()}
-          className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 10h10a5 5 0 015 5v2M3 10l5-5M3 10l5 5" /></svg>
-          <span className="text-[9px] font-medium">Undo</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => useEditorStore.getState().redo()}
-          className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 10H11a5 5 0 00-5 5v2M21 10l-5-5M21 10l-5 5" /></svg>
-          <span className="text-[9px] font-medium">Redo</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => useEditorStore.getState().setShowRightSidebar(!showRightSidebar)}
-          className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-          <span className="text-[9px] font-medium">Props</span>
-        </button>
+      <div className="shrink-0 border-t border-slate-200 bg-white flex items-center justify-between py-1.5 px-2 lg:hidden safe-area-bottom">
+        {/* Left group */}
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => useEditorStore.getState().setShowLeftSidebar(!showLeftSidebar)}
+            className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-slate-600 active:bg-slate-200 transition"
+          >
+            <LayoutTemplate size={18} />
+            <span className="text-[9px] font-medium">Tools</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => useEditorStore.getState().undo()}
+            className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-slate-600 active:bg-slate-200 transition"
+          >
+            <Undo2 size={18} />
+            <span className="text-[9px] font-medium">Undo</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => useEditorStore.getState().redo()}
+            className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-slate-600 active:bg-slate-200 transition"
+          >
+            <Redo2 size={18} />
+            <span className="text-[9px] font-medium">Redo</span>
+          </button>
+        </div>
+
+        {/* Center group */}
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveToolAndShow("templates");
+            }}
+            className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-slate-600 active:bg-slate-200 transition"
+          >
+            <LayoutTemplate size={18} />
+            <span className="text-[9px] font-medium">Design</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveToolAndShow("text");
+            }}
+            className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-slate-600 active:bg-slate-200 transition"
+          >
+            <Type size={18} />
+            <span className="text-[9px] font-medium">Text</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveToolAndShow("elements");
+            }}
+            className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-slate-600 active:bg-slate-200 transition"
+          >
+            <Shapes size={18} />
+            <span className="text-[9px] font-medium">Shape</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveToolAndShow("uploads");
+            }}
+            className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-slate-600 active:bg-slate-200 transition"
+          >
+            <Upload size={18} />
+            <span className="text-[9px] font-medium">Upload</span>
+          </button>
+        </div>
+
+        {/* Right group */}
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => useEditorStore.getState().setShowRightSidebar(!showRightSidebar)}
+            className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-slate-600 active:bg-slate-200 transition"
+          >
+            <Settings2 size={18} />
+            <span className="text-[9px] font-medium">Props</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleMobileExport}
+            className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-indigo-600 active:bg-indigo-100 transition"
+          >
+            <Download size={18} />
+            <span className="text-[9px] font-medium">Export</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsShareOpen(true)}
+            className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-slate-600 active:bg-slate-200 transition"
+          >
+            <Share2 size={18} />
+            <span className="text-[9px] font-medium">Share</span>
+          </button>
+        </div>
       </div>
 
+      {/* SHARE MODAL */}
+      <ShareModal isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} designId={designId} />
     </div>
   );
+
+  function setActiveToolAndShow(tool: string) {
+    useEditorStore.getState().setActiveTool(tool);
+    useEditorStore.getState().setShowLeftSidebar(true);
+  }
 }

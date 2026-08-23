@@ -262,9 +262,9 @@ export default function PropertyPanel() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* HEADER */}
-      <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 px-4 py-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-          <Hexagon size={19} />
+      <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 px-3 py-3 lg:px-4">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 lg:h-9 lg:w-9">
+          <Hexagon size={17} />
         </div>
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-sm font-semibold text-slate-900">
@@ -277,10 +277,10 @@ export default function PropertyPanel() {
       </div>
 
       {/* CONTENT */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-3 space-y-5 lg:p-4 lg:space-y-6">
         {/* TRANSFORM SECTION */}
         <PropertySection title="Transform" icon={<Square size={14} />}>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 lg:gap-3">
             <PropertyInput
               label="X"
               value={Math.round(activeObject.left || 0)}
@@ -307,7 +307,7 @@ export default function PropertyPanel() {
             />
           </div>
 
-          <div className="mt-3 grid grid-cols-4 gap-3">
+          <div className="mt-2 grid grid-cols-3 gap-2 lg:mt-3 lg:grid-cols-4 lg:gap-3">
             <PropertyInput
               label="Rotation"
               value={Math.round(activeObject.angle || 0)}
@@ -337,7 +337,7 @@ export default function PropertyPanel() {
 
         {/* APPEARANCE SECTION */}
         <PropertySection title="Appearance" icon={<Hexagon size={14} />}>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <ColorPicker
               label="Fill"
               value={currentFill}
@@ -371,7 +371,7 @@ export default function PropertyPanel() {
                 suffix="px"
               />
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 lg:gap-2">
                 <ButtonIcon
                   active={currentFontWeight === "bold"}
                   onClick={handleBold}
@@ -419,7 +419,7 @@ export default function PropertyPanel() {
                 </ButtonIcon>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 lg:gap-3">
                 <PropertyInput
                   label="Line Height"
                   value={Math.round(currentLineHeight * 100)}
@@ -510,7 +510,7 @@ export default function PropertyPanel() {
 
         {/* ARRANGE SECTION */}
         <PropertySection title="Arrange" icon={<Layers3 size={14} />}>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 lg:gap-2">
             <ButtonIcon onClick={bringToFront} title="Bring to front">
               <ArrowUp size={14} className="rotate-90" />
             </ButtonIcon>
@@ -539,7 +539,7 @@ export default function PropertyPanel() {
             <button
               type="button"
               onClick={duplicateSelected}
-              className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 transition active:bg-slate-100 lg:py-2 lg:hover:bg-slate-50"
             >
               <Copy size={16} />
               Duplicate
@@ -547,7 +547,7 @@ export default function PropertyPanel() {
             <button
               type="button"
               onClick={deleteSelected}
-              className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100"
+              className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600 transition active:bg-red-100 lg:py-2 lg:hover:bg-red-100"
             >
               <Trash2 size={16} />
               Delete
@@ -643,10 +643,10 @@ function PropertyInput({
           min={min}
           max={max}
           step={step}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-mono text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 pr-8"
+          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm font-mono text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 pr-8 lg:px-3"
         />
         {suffix && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">{suffix}</span>
+          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 lg:right-3">{suffix}</span>
         )}
       </div>
     </div>
@@ -664,7 +664,7 @@ function ColorPicker({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <label className="text-[11px] font-medium text-slate-500 w-16">{label}</label>
+      <label className="text-[11px] font-medium text-slate-500 w-12 lg:w-16">{label}</label>
       <input
         type="color"
         value={value}
@@ -680,7 +680,7 @@ function ColorPicker({
             onChange(color);
           }
         }}
-        className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-mono text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+        className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm font-mono text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 lg:px-3"
         placeholder="#000000"
       />
     </div>
@@ -748,7 +748,7 @@ function ButtonIcon({
       className={`p-2 rounded-lg transition ${
         active
           ? "bg-slate-100 text-slate-900"
-          : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+          : "text-slate-500 active:bg-slate-200 lg:hover:bg-slate-100 lg:hover:text-slate-900"
       }`}
     >
       {children}

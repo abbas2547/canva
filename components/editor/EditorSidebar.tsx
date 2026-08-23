@@ -110,7 +110,7 @@ export default function EditorSidebar() {
                   ${
                     active
                       ? `${tool.bg} ${tool.color} shadow-sm`
-                      : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                      : "text-slate-400 active:bg-slate-50 lg:hover:bg-slate-50 lg:hover:text-slate-700"
                   }
                 `}
               >
@@ -142,7 +142,7 @@ export default function EditorSidebar() {
             ${
               activeTool === "settings"
                 ? "bg-slate-100 text-slate-700 shadow-sm"
-                : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                : "text-slate-400 active:bg-slate-50 lg:hover:bg-slate-50 lg:hover:text-slate-700"
             }
           `}
         >

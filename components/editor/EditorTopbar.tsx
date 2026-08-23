@@ -9,8 +9,6 @@ import {
 
 import {
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Check,
   Download,
   Eye,
@@ -53,9 +51,11 @@ import {
   EyeOff,
   Globe,
   Settings,
-LayoutTemplate,
-Keyboard,
-Home,
+  LayoutTemplate,
+  Keyboard,
+  Home,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 import { useEditorStore } from "@/store/editorStore";
@@ -203,7 +203,6 @@ export default function EditorTopbar() {
         multiplier: 2,
         quality: 1,
       });
-      // For PDF, we'd need jsPDF - simplified for now
       const link = document.createElement("a");
       link.href = dataURL;
       link.download = `${designName || "design"}.pdf`;
@@ -317,17 +316,18 @@ export default function EditorTopbar() {
 
   return (
     <>
-      <header className="relative z-[100] flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-3 shadow-sm">
+      {/* MOBILE TOPBAR */}
+      <header className="relative z-[100] flex h-12 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-2 shadow-sm lg:h-14 lg:px-3">
         {/* LEFT SECTION */}
         <div className="flex min-w-0 items-center gap-1">
-          {/* Home */}
+          {/* Home - Mobile: icon only, Desktop: with text */}
           <button
             onClick={() => requestExit("/")}
-            className="group flex shrink-0 items-center gap-2 rounded-xl px-2 py-1.5 transition hover:bg-slate-100"
+            className="group flex shrink-0 items-center gap-2 rounded-xl px-1.5 py-1.5 transition hover:bg-slate-100 lg:px-2"
             title="Go to Home"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-black text-white shadow-sm">
-              <Sparkles size={17} />
+            <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-black text-white shadow-sm lg:h-8 lg:w-8">
+              <Sparkles size={15} />
             </div>
             <div className="hidden text-left sm:block">
               <p className="text-sm font-bold leading-none text-slate-900">MiniCanva</p>
@@ -337,7 +337,7 @@ export default function EditorTopbar() {
 
           <div className="mx-1 hidden h-6 w-px bg-slate-200 md:block" />
 
-          {/* Dashboard Button */}
+          {/* Dashboard Button - hidden on mobile */}
           <button
             onClick={() => requestExit("/dashboard")}
             className="hidden items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 md:flex"
@@ -349,8 +349,8 @@ export default function EditorTopbar() {
 
           <div className="mx-1 hidden h-6 w-px bg-slate-200 md:block" />
 
-          {/* File Menu */}
-          <div ref={fileMenuRef} className="relative">
+          {/* File Menu - hidden on mobile */}
+          <div ref={fileMenuRef} className="relative hidden md:block">
             <button
               type="button"
               onClick={() => setIsFileMenuOpen((value) => !value)}
@@ -383,7 +383,7 @@ export default function EditorTopbar() {
 
                   <button
                     type="button"
-                    onClick={() => { setIsFileMenuOpen(false); /* open design */ }}
+                    onClick={() => { setIsFileMenuOpen(false); }}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-100"
                     role="menuitem"
                   >
@@ -394,7 +394,7 @@ export default function EditorTopbar() {
 
                   <button
                     type="button"
-                    onClick={() => { setIsFileMenuOpen(false); /* import */ }}
+                    onClick={() => { setIsFileMenuOpen(false); }}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-100"
                     role="menuitem"
                   >
@@ -452,7 +452,7 @@ export default function EditorTopbar() {
           </div>
 
           {/* DESIGN NAME */}
-          <div className="ml-1 min-w-0">
+          <div className="ml-0.5 min-w-0 lg:ml-1">
             {isEditingName ? (
               <input
                 ref={nameInputRef}
@@ -463,21 +463,21 @@ export default function EditorTopbar() {
                 }}
                 onBlur={saveDesignName}
                 onKeyDown={handleNameKeyDown}
-                className="w-48 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-900 outline-none ring-2 ring-slate-200 focus:border-slate-400"
+                className="w-32 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-900 outline-none ring-2 ring-slate-200 focus:border-slate-400 lg:w-48 lg:text-sm"
               />
             ) : (
               <button
                 type="button"
                 onClick={startEditingName}
                 title="Rename design"
-                className="max-w-52 truncate rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                className="max-w-[120px] truncate rounded-lg px-1.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-100 lg:max-w-52 lg:px-2.5 lg:py-1.5 lg:text-sm"
               >
                 {designName}
               </button>
             )}
           </div>
 
-          {/* SAVE STATUS */}
+          {/* SAVE STATUS - desktop only */}
           <div className="hidden items-center gap-1 text-xs text-slate-400 lg:flex">
             {saved ? (
               <>
@@ -493,8 +493,8 @@ export default function EditorTopbar() {
           </div>
         </div>
 
-        {/* CENTER - UNDO/REDO & ZOOM */}
-        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+        {/* CENTER - UNDO/REDO & ZOOM - desktop only */}
+        <div className="absolute left-1/2 -translate-x-1/2 hidden lg:flex items-center gap-2">
           {/* Undo/Redo */}
           <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-1 border border-slate-200">
             <button
@@ -563,12 +563,34 @@ export default function EditorTopbar() {
         </div>
 
         {/* RIGHT SECTION */}
-        <div className="ml-auto flex items-center gap-1.5">
-          {/* Sidebar Toggles */}
+        <div className="ml-auto flex items-center gap-1 lg:gap-1.5">
+          {/* Mobile undo/redo - compact */}
+          <div className="flex items-center gap-0.5 lg:hidden">
+            <button
+              type="button"
+              onClick={() => undo()}
+              disabled={historyIndex <= 0}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 active:bg-slate-200 transition disabled:opacity-30"
+            >
+              <Undo2 size={17} />
+            </button>
+            <button
+              type="button"
+              onClick={() => redo()}
+              disabled={historyIndex >= history.length - 1}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 active:bg-slate-200 transition disabled:opacity-30"
+            >
+              <Redo2 size={17} />
+            </button>
+          </div>
+
+          <div className="mx-0.5 h-6 w-px bg-slate-200 hidden lg:block" />
+
+          {/* Sidebar Toggles - desktop only */}
           <button
             onClick={() => setShowLeftSidebar(!showLeftSidebar)}
             title="Toggle left sidebar"
-            className={`flex h-9 w-9 items-center justify-center rounded-lg transition ${showLeftSidebar ? "bg-slate-100 text-slate-700" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"}`}
+            className={`hidden lg:flex h-9 w-9 items-center justify-center rounded-lg transition ${showLeftSidebar ? "bg-slate-100 text-slate-700" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"}`}
           >
             <ChevronLeft size={20} />
           </button>
@@ -576,14 +598,14 @@ export default function EditorTopbar() {
           <button
             onClick={() => setShowRightSidebar(!showRightSidebar)}
             title="Toggle right sidebar"
-            className={`flex h-9 w-9 items-center justify-center rounded-lg transition ${showRightSidebar ? "bg-slate-100 text-slate-700" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"}`}
+            className={`hidden lg:flex h-9 w-9 items-center justify-center rounded-lg transition ${showRightSidebar ? "bg-slate-100 text-slate-700" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"}`}
           >
             <ChevronRight size={20} />
           </button>
 
-          <div className="mx-1 h-6 w-px bg-slate-200" />
+          <div className="mx-0.5 h-6 w-px bg-slate-200 hidden lg:block" />
 
-          {/* Quick Actions */}
+          {/* Quick Actions - hidden on mobile */}
           <button
             type="button"
             title="Templates"
@@ -620,16 +642,16 @@ export default function EditorTopbar() {
             <ImageIcon size={20} />
           </button>
 
-          <div className="mx-1 h-6 w-px bg-slate-200 hidden sm:block" />
+          <div className="mx-0.5 h-6 w-px bg-slate-200 hidden sm:block" />
 
           {/* AI Assistant Toggle */}
           <button
             type="button"
             onClick={toggleAIChat}
             title={showAIChat && rightPanel === "ai" ? "Hide AI Assistant" : "AI Assistant"}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold shadow-sm transition sm:flex ${
+            className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-bold shadow-sm transition lg:px-3 lg:py-2 ${
               showAIChat && rightPanel === "ai"
-                ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 hover:shadow-md"
+                ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
           >
@@ -637,7 +659,7 @@ export default function EditorTopbar() {
             <span className="hidden md:inline">AI</span>
           </button>
 
-          {/* Preview */}
+          {/* Preview - hidden on mobile */}
           <button
             type="button"
             onClick={openPreview}
@@ -647,7 +669,7 @@ export default function EditorTopbar() {
             Preview
           </button>
 
-          {/* Share */}
+          {/* Share - hidden on mobile */}
           <button
             type="button"
             onClick={() => setIsShareOpen(true)}
@@ -663,11 +685,11 @@ export default function EditorTopbar() {
               type="button"
               onClick={exportPNG}
               disabled={isSaving}
-              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-indigo-700 hover:to-purple-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:from-indigo-700 hover:to-purple-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed lg:gap-2 lg:px-4 lg:py-2 lg:text-sm"
             >
-              <Download size={16} />
+              <Download size={14} />
               <span className="hidden sm:inline">{isSaving ? "Saving..." : "Export"}</span>
-              <ChevronDown size={14} />
+              <ChevronDown size={12} className="hidden sm:block" />
             </button>
             
             {/* Export Dropdown */}
@@ -710,16 +732,6 @@ export default function EditorTopbar() {
                     PDF Standard
                     <span className="ml-auto text-xs text-slate-400">For printing</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => { /* PDF Print */ setIsMoreMenuOpen(false); }}
-                    className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
-                    role="menuitem"
-                  >
-                    <File size={16} />
-                    PDF Print
-                    <span className="ml-auto text-xs text-slate-400">With bleed</span>
-                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -730,9 +742,9 @@ export default function EditorTopbar() {
             <button
               type="button"
               onClick={() => setIsMoreMenuOpen((value) => !value)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 lg:h-9 lg:w-9"
             >
-              <MoreHorizontal size={19} />
+              <MoreHorizontal size={18} />
             </button>
 
             <AnimatePresence>
@@ -795,7 +807,7 @@ export default function EditorTopbar() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="sticky top-14 z-[99] bg-white border-b border-slate-200 px-3 py-2 shadow-sm"
+            className="sticky top-12 z-[99] bg-white border-b border-slate-200 px-2 py-1.5 shadow-sm lg:top-14 lg:px-3 lg:py-2"
           >
             <ContextToolbar />
           </motion.div>
@@ -809,7 +821,7 @@ export default function EditorTopbar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-8"
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-4 sm:p-8"
             onClick={() => setIsPreviewOpen(false)}
           >
             <motion.div
@@ -822,34 +834,34 @@ export default function EditorTopbar() {
               <button
                 type="button"
                 onClick={() => setIsPreviewOpen(false)}
-                className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 shadow-lg transition hover:bg-slate-100"
+                className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-700 shadow-lg transition hover:bg-slate-100 lg:right-4 lg:top-4 lg:h-10 lg:w-10"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
 
-              <div className="max-h-[80vh] max-w-[90vw] overflow-auto p-4">
+              <div className="max-h-[70vh] max-w-[90vw] overflow-auto p-2 sm:p-4">
                 <img
                   src={canvas.toDataURL({ format: "png", multiplier: 2 })}
                   alt="Design preview"
-                  className="block max-h-[75vh] max-w-[85vw] object-contain"
+                  className="block max-h-[60vh] max-w-[85vw] object-contain"
                 />
               </div>
 
-              <div className="flex items-center justify-between px-4 py-4 border-t border-slate-100">
-                <span className="text-sm text-slate-600">{designName}</span>
+              <div className="flex items-center justify-between px-3 py-3 border-t border-slate-100 lg:px-4 lg:py-4">
+                <span className="text-xs text-slate-600 lg:text-sm">{designName}</span>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => { exportPNG(); setIsPreviewOpen(false); }}
-                    className="flex items-center gap-2 rounded-lg bg-white border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    className="flex items-center gap-2 rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 lg:px-4 lg:py-2 lg:text-sm"
                   >
-                    <Download size={16} />
+                    <Download size={14} />
                     Download
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsPreviewOpen(false)}
-                    className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                    className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-700 lg:px-4 lg:py-2 lg:text-sm"
                   >
                     Close
                   </button>
@@ -880,14 +892,14 @@ export default function EditorTopbar() {
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6"
+              className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5 sm:p-6"
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="text-lg font-bold text-slate-900 mb-2">Unsaved changes</h3>
               <p className="text-sm text-slate-500 mb-6">
                 Do you want to save your changes before leaving?
               </p>
-              <div className="flex justify-end gap-3">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <button
                   onClick={() => setExitTarget(null)}
                   className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
@@ -915,7 +927,7 @@ export default function EditorTopbar() {
   );
 }
 
-// Context Toolbar Component
+// Context Toolbar Component - responsive for mobile
 function ContextToolbar() {
   const activeObject = useEditorStore((state) => state.activeObject);
   const canvas = useEditorStore((state) => state.canvas);
@@ -991,124 +1003,64 @@ function ContextToolbar() {
     }
   };
 
-  const handleLineHeight = (value: number) => {
-    if (isText) {
-      (activeObject as any).set("lineHeight", value);
-      canvas.requestRenderAll();
-      saveHistory();
-    }
-  };
-
-  const handleLetterSpacing = (value: number) => {
-    if (isText) {
-      (activeObject as any).set("charSpacing", value);
-      canvas.requestRenderAll();
-      saveHistory();
-    }
-  };
-
   return (
-    <div className="flex flex-wrap items-center gap-2 max-w-full">
-      {/* Position & Size */}
-      <div className="flex items-center gap-1 border-r border-slate-200 pr-3">
-        <span className="text-xs text-slate-500 px-2">Position</span>
-        <div className="flex items-center gap-1">
-          <input
-            type="number"
-            value={Math.round(activeObject.left || 0)}
-            onChange={(e) => {
-              activeObject.set("left", parseInt(e.target.value) || 0);
-              canvas.requestRenderAll();
-              saveHistory();
-            }}
-            className="w-16 px-2 py-1 text-xs border border-slate-200 rounded bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            placeholder="X"
-          />
-          <span className="text-slate-400">×</span>
-          <input
-            type="number"
-            value={Math.round(activeObject.top || 0)}
-            onChange={(e) => {
-              activeObject.set("top", parseInt(e.target.value) || 0);
-              canvas.requestRenderAll();
-              saveHistory();
-            }}
-            className="w-16 px-2 py-1 text-xs border border-slate-200 rounded bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            placeholder="Y"
-          />
-        </div>
-        <div className="flex items-center gap-1 ml-2">
-          <span className="text-xs text-slate-500">W</span>
-          <input
-            type="number"
-            value={Math.round(activeObject.width || 0)}
-            onChange={(e) => {
-              activeObject.set("width", parseInt(e.target.value) || 0);
-              canvas.requestRenderAll();
-              saveHistory();
-            }}
-            className="w-16 px-2 py-1 text-xs border border-slate-200 rounded bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-          <span className="text-slate-400">×</span>
-          <input
-            type="number"
-            value={Math.round(activeObject.height || 0)}
-            onChange={(e) => {
-              activeObject.set("height", parseInt(e.target.value) || 0);
-              canvas.requestRenderAll();
-              saveHistory();
-            }}
-            className="w-16 px-2 py-1 text-xs border border-slate-200 rounded bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-        </div>
+    <div className="flex items-center gap-1.5 overflow-x-auto max-w-full scrollbar-none lg:gap-2">
+      {/* Quick actions - compact on mobile */}
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          onClick={deleteSelected}
+          className="flex h-7 w-7 items-center justify-center rounded text-red-500 transition active:bg-red-100 lg:h-8 lg:w-8 lg:hover:bg-red-50"
+          title="Delete"
+        >
+          <Trash2 size={14} />
+        </button>
+        <button
+          onClick={duplicateSelected}
+          className="flex h-7 w-7 items-center justify-center rounded text-slate-500 transition active:bg-slate-200 lg:h-8 lg:w-8 lg:hover:bg-slate-100"
+          title="Duplicate"
+        >
+          <Copy size={14} />
+        </button>
       </div>
 
-      {/* Rotation & Opacity */}
-      <div className="flex items-center gap-1 border-r border-slate-200 pr-3">
-        <span className="text-xs text-slate-500 px-2">Transform</span>
-        <div className="flex items-center gap-1">
-          <input
-            type="number"
-            value={Math.round(activeObject.angle || 0)}
-            onChange={(e) => {
-              activeObject.set("angle", parseInt(e.target.value) || 0);
-              canvas.requestRenderAll();
-              saveHistory();
-            }}
-            className="w-16 px-2 py-1 text-xs border border-slate-200 rounded bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            placeholder="Rotate"
-          />
-          <span className="text-slate-400">°</span>
-        </div>
-        <div className="flex items-center gap-1 ml-2">
-          <span className="text-xs text-slate-500">Opacity</span>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={Math.round((activeObject.opacity || 1) * 100)}
-            onChange={(e) => {
-              activeObject.set("opacity", parseInt(e.target.value) / 100);
-              canvas.requestRenderAll();
-              saveHistory();
-            }}
-            className="w-24 h-2 accent-indigo-600"
-          />
-          <span className="text-xs text-slate-500 w-8 text-right">
-            {Math.round((activeObject.opacity || 1) * 100)}%
-          </span>
-        </div>
+      <div className="h-5 w-px bg-slate-200 shrink-0" />
+
+      {/* Position */}
+      <div className="flex items-center gap-1 shrink-0">
+        <input
+          type="number"
+          value={Math.round(activeObject.left || 0)}
+          onChange={(e) => {
+            activeObject.set("left", parseInt(e.target.value) || 0);
+            canvas.requestRenderAll();
+            saveHistory();
+          }}
+          className="w-12 px-1.5 py-1 text-[11px] border border-slate-200 rounded bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500 lg:w-16 lg:text-xs"
+          placeholder="X"
+        />
+        <span className="text-slate-400 text-[10px]">×</span>
+        <input
+          type="number"
+          value={Math.round(activeObject.top || 0)}
+          onChange={(e) => {
+            activeObject.set("top", parseInt(e.target.value) || 0);
+            canvas.requestRenderAll();
+            saveHistory();
+          }}
+          className="w-12 px-1.5 py-1 text-[11px] border border-slate-200 rounded bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500 lg:w-16 lg:text-xs"
+          placeholder="Y"
+        />
       </div>
 
-      {/* Text Formatting - only for text objects */}
+      <div className="h-5 w-px bg-slate-200 shrink-0" />
+
+      {/* Text formatting - scrollable on mobile */}
       {isText && (
-        <div className="flex items-center gap-1 border-r border-slate-200 pr-3">
-          <span className="text-xs text-slate-500 px-2">Text</span>
-          
+        <div className="flex items-center gap-1 shrink-0">
           <select
             value={(activeObject as any).fontFamily || "Arial"}
             onChange={(e) => handleFontFamilyChange(e.target.value)}
-            className="px-2 py-1 text-xs border border-slate-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="px-1.5 py-1 text-[11px] border border-slate-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 lg:px-2 lg:text-xs"
           >
             <option value="Arial">Arial</option>
             <option value="Helvetica">Helvetica</option>
@@ -1118,8 +1070,6 @@ function ContextToolbar() {
             <option value="Roboto">Roboto</option>
             <option value="Inter">Inter</option>
             <option value="Poppins">Poppins</option>
-            <option value="Montserrat">Montserrat</option>
-            <option value="Open Sans">Open Sans</option>
           </select>
 
           <input
@@ -1128,92 +1078,63 @@ function ContextToolbar() {
             onChange={(e) => handleFontSizeChange(parseInt(e.target.value) || 12)}
             min="8"
             max="200"
-            className="w-16 px-2 py-1 text-xs border border-slate-200 rounded bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-12 px-1.5 py-1 text-[11px] border border-slate-200 rounded bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500 lg:w-14 lg:text-xs"
           />
 
-          <div className="flex items-center gap-1 ml-1">
+          <div className="flex items-center gap-0.5">
             <button
               onClick={handleBold}
-              className={`p-1.5 rounded text-slate-600 transition ${(activeObject as any).fontWeight === "bold" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-100"}`}
-              title="Bold (⌘B)"
+              className={`p-1 rounded text-slate-600 transition ${(activeObject as any).fontWeight === "bold" ? "bg-slate-100 text-slate-900" : "active:bg-slate-200 lg:hover:bg-slate-100"}`}
+              title="Bold"
             >
-              <Bold size={14} />
+              <Bold size={13} />
             </button>
             <button
               onClick={handleItalic}
-              className={`p-1.5 rounded text-slate-600 transition ${(activeObject as any).fontStyle === "italic" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-100"}`}
-              title="Italic (⌘I)"
+              className={`p-1 rounded text-slate-600 transition ${(activeObject as any).fontStyle === "italic" ? "bg-slate-100 text-slate-900" : "active:bg-slate-200 lg:hover:bg-slate-100"}`}
+              title="Italic"
             >
-              <Italic size={14} />
+              <Italic size={13} />
             </button>
             <button
               onClick={handleUnderline}
-              className={`p-1.5 rounded text-slate-600 transition ${(activeObject as any).underline ? "bg-slate-100 text-slate-900" : "hover:bg-slate-100"}`}
-              title="Underline (⌘U)"
+              className={`p-1 rounded text-slate-600 transition ${(activeObject as any).underline ? "bg-slate-100 text-slate-900" : "active:bg-slate-200 lg:hover:bg-slate-100"}`}
+              title="Underline"
             >
-              <Underline size={14} />
+              <Underline size={13} />
             </button>
           </div>
 
-          <div className="flex items-center gap-1 ml-1">
-            <button onClick={() => handleAlignment("left")} className={`p-1.5 rounded text-slate-600 transition ${(activeObject as any).textAlign === "left" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-100"}`} title="Align left">
-              <AlignLeft size={14} />
+          <div className="flex items-center gap-0.5">
+            <button onClick={() => handleAlignment("left")} className={`p-1 rounded text-slate-600 transition ${(activeObject as any).textAlign === "left" ? "bg-slate-100 text-slate-900" : "active:bg-slate-200 lg:hover:bg-slate-100"}`} title="Align left">
+              <AlignLeft size={13} />
             </button>
-            <button onClick={() => handleAlignment("center")} className={`p-1.5 rounded text-slate-600 transition ${(activeObject as any).textAlign === "center" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-100"}`} title="Align center">
-              <AlignCenter size={14} />
+            <button onClick={() => handleAlignment("center")} className={`p-1 rounded text-slate-600 transition ${(activeObject as any).textAlign === "center" ? "bg-slate-100 text-slate-900" : "active:bg-slate-200 lg:hover:bg-slate-100"}`} title="Align center">
+              <AlignCenter size={13} />
             </button>
-            <button onClick={() => handleAlignment("right")} className={`p-1.5 rounded text-slate-600 transition ${(activeObject as any).textAlign === "right" ? "bg-slate-100 text-slate-900" : "hover:bg-slate-100"}`} title="Align right">
-              <AlignRight size={14} />
+            <button onClick={() => handleAlignment("right")} className={`p-1 rounded text-slate-600 transition ${(activeObject as any).textAlign === "right" ? "bg-slate-100 text-slate-900" : "active:bg-slate-200 lg:hover:bg-slate-100"}`} title="Align right">
+              <AlignRight size={13} />
             </button>
-          </div>
-
-          <div className="flex items-center gap-1 ml-1">
-            <span className="text-xs text-slate-500">Line</span>
-            <input
-              type="number"
-              value={Math.round(((activeObject as any).lineHeight || 1.2) * 100)}
-              onChange={(e) => handleLineHeight(parseInt(e.target.value) / 100)}
-              min="50"
-              max="300"
-              step="10"
-              className="w-16 px-2 py-1 text-xs border border-slate-200 rounded bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
-            <span className="text-xs text-slate-400">%</span>
           </div>
         </div>
       )}
 
-      {/* Colors - for shapes and text */}
+      {/* Colors */}
       {(isShape || isText) && (
-        <div className="flex items-center gap-1 border-r border-slate-200 pr-3">
-          <span className="text-xs text-slate-500 px-2">Color</span>
-          
-          <div className="flex items-center gap-1">
-            <input
-              type="color"
-              value={isText ? (activeObject as any).fill || "#000000" : (activeObject as any).fill || "#6366f1"}
-              onChange={(e) => handleColorChange(e.target.value, "fill")}
-              className="h-8 w-8 rounded border border-slate-200 cursor-pointer"
-              title="Fill color"
-            />
-            {isShape && (
-              <input
-                type="color"
-                value={(activeObject as any).stroke || "#000000"}
-                onChange={(e) => handleColorChange(e.target.value, "stroke")}
-                className="h-8 w-8 rounded border border-slate-200 cursor-pointer relative"
-                title="Stroke color"
-              />
-            )}
-          </div>
-
-          {/* Quick colors */}
-          <div className="flex items-center gap-1 ml-1">
+        <div className="flex items-center gap-1 shrink-0">
+          <input
+            type="color"
+            value={isText ? (activeObject as any).fill || "#000000" : (activeObject as any).fill || "#6366f1"}
+            onChange={(e) => handleColorChange(e.target.value, "fill")}
+            className="h-7 w-7 rounded border border-slate-200 cursor-pointer lg:h-8 lg:w-8"
+            title="Fill color"
+          />
+          <div className="hidden sm:flex items-center gap-0.5">
             {["#ffffff", "#000000", "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899"].map((color) => (
               <button
                 key={color}
                 onClick={() => handleColorChange(color, "fill")}
-                className="w-6 h-6 rounded border border-slate-200 transition hover:scale-110"
+                className="w-5 h-5 rounded border border-slate-200 transition active:scale-110 lg:w-6 lg:h-6"
                 style={{ backgroundColor: color }}
                 title={color}
               />
@@ -1222,50 +1143,24 @@ function ContextToolbar() {
         </div>
       )}
 
-      {/* Image Controls */}
-      {isImage && (
-        <div className="flex items-center gap-1 border-r border-slate-200 pr-3">
-          <span className="text-xs text-slate-500 px-2">Image</span>
-          <button
-            onClick={() => { /* crop */ }}
-            className="px-3 py-1.5 text-xs border border-slate-200 rounded hover:bg-slate-50"
-          >
-            Crop
-          </button>
-          <button
-            onClick={() => { /* filter */ }}
-            className="px-3 py-1.5 text-xs border border-slate-200 rounded hover:bg-slate-50"
-          >
-            Filter
-          </button>
-          <button
-            onClick={() => { /* replace */ }}
-            className="px-3 py-1.5 text-xs border border-slate-200 rounded hover:bg-slate-50"
-          >
-            Replace
-          </button>
-        </div>
-      )}
-
       {/* Arrange */}
-      <div className="flex items-center gap-1 border-r border-slate-200 pr-3">
-        <span className="text-xs text-slate-500 px-2">Arrange</span>
-        <button onClick={bringToFront} className="p-1.5 rounded text-slate-500 hover:bg-slate-100" title="Bring to front">
-          <ArrowUp size={14} className="rotate-90" />
+      <div className="flex items-center gap-0.5 shrink-0">
+        <button onClick={bringToFront} className="p-1 rounded text-slate-500 active:bg-slate-200 lg:hover:bg-slate-100" title="Bring to front">
+          <ArrowUp size={13} className="rotate-90" />
         </button>
-        <button onClick={bringForward} className="p-1.5 rounded text-slate-500 hover:bg-slate-100" title="Bring forward (⌘]">
-          <ArrowUp size={14} />
+        <button onClick={bringForward} className="p-1 rounded text-slate-500 active:bg-slate-200 lg:hover:bg-slate-100" title="Bring forward">
+          <ArrowUp size={13} />
         </button>
-        <button onClick={sendBackward} className="p-1.5 rounded text-slate-500 hover:bg-slate-100" title="Send backward (⌘[)">
-          <ArrowDown size={14} />
+        <button onClick={sendBackward} className="p-1 rounded text-slate-500 active:bg-slate-200 lg:hover:bg-slate-100" title="Send backward">
+          <ArrowDown size={13} />
         </button>
-        <button onClick={sendToBack} className="p-1.5 rounded text-slate-500 hover:bg-slate-100" title="Send to back">
-          <ArrowDown size={14} className="rotate-90" />
+        <button onClick={sendToBack} className="p-1 rounded text-slate-500 active:bg-slate-200 lg:hover:bg-slate-100" title="Send to back">
+          <ArrowDown size={13} className="rotate-90" />
         </button>
       </div>
 
-      {/* Lock/Visibility/Delete */}
-      <div className="flex items-center gap-1">
+      {/* Lock/Visibility */}
+      <div className="flex items-center gap-0.5 shrink-0">
         <button
           onClick={() => {
             const locked = activeObject.lockMovementX === true;
@@ -1281,10 +1176,10 @@ function ContextToolbar() {
             canvas.requestRenderAll();
             saveHistory();
           }}
-          className={`p-1.5 rounded text-slate-500 transition ${activeObject.lockMovementX ? "bg-slate-100 text-slate-900" : "hover:bg-slate-100"}`}
+          className={`p-1 rounded text-slate-500 transition ${activeObject.lockMovementX ? "bg-slate-100 text-slate-900" : "active:bg-slate-200 lg:hover:bg-slate-100"}`}
           title="Lock/Unlock"
         >
-          {activeObject.lockMovementX ? <Lock size={16} /> : <Unlock size={16} />}
+          {activeObject.lockMovementX ? <Lock size={14} /> : <Unlock size={14} />}
         </button>
         <button
           onClick={() => {
@@ -1292,27 +1187,12 @@ function ContextToolbar() {
             canvas.requestRenderAll();
             saveHistory();
           }}
-          className={`p-1.5 rounded text-slate-500 transition ${activeObject.visible === false ? "bg-slate-100 text-slate-900" : "hover:bg-slate-100"}`}
+          className={`p-1 rounded text-slate-500 transition ${activeObject.visible === false ? "bg-slate-100 text-slate-900" : "active:bg-slate-200 lg:hover:bg-slate-100"}`}
           title="Show/Hide"
         >
-          {activeObject.visible === false ? <EyeOff size={16} /> : <Eye size={16} />}
-        </button>
-        <button
-          onClick={deleteSelected}
-          className="p-1.5 rounded text-red-500 transition hover:bg-red-50"
-          title="Delete (Del)"
-        >
-          <Trash2 size={16} />
-        </button>
-        <button
-          onClick={duplicateSelected}
-          className="p-1.5 rounded text-slate-500 transition hover:bg-slate-100 ml-1"
-          title="Duplicate (⌘D)"
-        >
-          <Copy size={16} />
+          {activeObject.visible === false ? <EyeOff size={14} /> : <Eye size={14} />}
         </button>
       </div>
     </div>
   );
 }
-

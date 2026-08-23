@@ -159,6 +159,8 @@ export default function CanvasWorkspace() {
   const [showGrid, setShowGrid] = useState(false);
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [snapToObjects, setSnapToObjects] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showMobileToolbar, setShowMobileToolbar] = useState(false);
 
   const [guides, setGuides] = useState<GuideLine[]>([]);
   const [snapLines, setSnapLines] = useState<{
@@ -215,6 +217,23 @@ export default function CanvasWorkspace() {
     useEditorStore(
       (state) => state.canvasHeight
     );
+
+  /* =======================================================
+     MOBILE DETECTION
+  ======================================================= */
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) {
+        setShowRulers(false);
+      }
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   /* =======================================================
      SELECTION CALLBACKS
@@ -1655,10 +1674,10 @@ export default function CanvasWorkspace() {
   return (
     <div className="relative flex h-full min-h-0 w-full overflow-hidden bg-[#f1f2f4]">
       {/* =================================================
-          RULERS
+          RULERS - hidden on mobile
       ================================================= */}
 
-      {showRulers && (
+      {showRulers && !isMobile && (
         <>
           {/* Top Ruler */}
           <div
@@ -1782,11 +1801,12 @@ export default function CanvasWorkspace() {
       ))}
 
       {/* =================================================
-          TOP TOOLBAR
+          TOP TOOLBAR - Desktop: full toolbar, Mobile: collapsible
       ================================================= */}
 
+      {/* Desktop Toolbar */}
       <div
-        className="absolute top-4 left-1/2 z-40 -translate-x-1/2 flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg"
+        className="absolute top-4 left-1/2 z-40 -translate-x-1/2 hidden lg:flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg"
       >
         {/* SELECT */}
         <button
@@ -1954,13 +1974,148 @@ export default function CanvasWorkspace() {
         </button>
       </div>
 
+      {/* Mobile Floating Action Button */}
+      <button
+        type="button"
+        onClick={() => setShowMobileToolbar(!showMobileToolbar)}
+        className="absolute top-3 right-3 z-40 lg:hidden flex h-10 w-10 items-center justify-center rounded-full bg-white border border-slate-200 shadow-lg text-slate-600 active:bg-slate-100"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          {showMobileToolbar ? (
+            <path d="M18 6L6 18M6 6l12 12" />
+          ) : (
+            <path d="M12 5v14M5 12h14" />
+          )}
+        </svg>
+      </button>
+
+      {/* Mobile Toolbar Panel */}
+      {showMobileToolbar && (
+        <div className="absolute top-14 right-3 z-40 lg:hidden bg-white rounded-xl border border-slate-200 shadow-xl p-2 flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => { deselect(); setShowMobileToolbar(false); }}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 active:bg-slate-100"
+          >
+            <MousePointer2 size={16} />
+            Select
+          </button>
+          <button
+            type="button"
+            onClick={() => { addText(); setShowMobileToolbar(false); }}
+            disabled={!isReady}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 active:bg-slate-100 disabled:opacity-40"
+          >
+            <Type size={16} />
+            Add Text
+          </button>
+          <button
+            type="button"
+            onClick={() => { addRectangle(); setShowMobileToolbar(false); }}
+            disabled={!isReady}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 active:bg-slate-100 disabled:opacity-40"
+          >
+            <Square size={16} />
+            Rectangle
+          </button>
+          <button
+            type="button"
+            onClick={() => { addCircle(); setShowMobileToolbar(false); }}
+            disabled={!isReady}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 active:bg-slate-100 disabled:opacity-40"
+          >
+            <Circle size={16} />
+            Circle
+          </button>
+          <button
+            type="button"
+            onClick={() => { addTriangle(); setShowMobileToolbar(false); }}
+            disabled={!isReady}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 active:bg-slate-100 disabled:opacity-40"
+          >
+            <Triangle size={16} />
+            Triangle
+          </button>
+          <button
+            type="button"
+            onClick={() => { addLine(); setShowMobileToolbar(false); }}
+            disabled={!isReady}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 active:bg-slate-100 disabled:opacity-40"
+          >
+            <span className="block h-0.5 w-4 rotate-[-25deg] bg-current" />
+            Line
+          </button>
+          <div className="h-px bg-slate-200 my-1" />
+          <label className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 active:bg-slate-100 cursor-pointer">
+            <ImagePlus size={16} />
+            Upload Image
+            <input
+              type="file"
+              hidden
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  void uploadImageFile(file);
+                }
+                event.target.value = "";
+                setShowMobileToolbar(false);
+              }}
+            />
+          </label>
+          <div className="h-px bg-slate-200 my-1" />
+          <button
+            type="button"
+            onClick={() => { duplicateObject(); setShowMobileToolbar(false); }}
+            disabled={!isReady}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 active:bg-slate-100 disabled:opacity-40"
+          >
+            <Copy size={16} />
+            Duplicate
+          </button>
+          <button
+            type="button"
+            onClick={() => { deleteObject(); setShowMobileToolbar(false); }}
+            disabled={!isReady}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-500 active:bg-red-50 disabled:opacity-40"
+          >
+            <Trash2 size={16} />
+            Delete
+          </button>
+          <div className="h-px bg-slate-200 my-1" />
+          <button
+            type="button"
+            onClick={() => { setShowGrid(!showGrid); }}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${showGrid ? "bg-slate-100 text-slate-900" : "text-slate-600 active:bg-slate-100"}`}
+          >
+            <div className="relative w-4 h-4">
+              <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-[1px] bg-slate-300" />
+            </div>
+            Grid {showGrid ? "On" : "Off"}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSnapToObjects(!snapToObjects); }}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${snapToObjects ? "bg-slate-100 text-slate-900" : "text-slate-600 active:bg-slate-100"}`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="2" y="2" width="20" height="20" rx="2" />
+              <path d="M8 12h8M12 8v8" />
+            </svg>
+            Snap {snapToObjects ? "On" : "Off"}
+          </button>
+        </div>
+      )}
+
       {/* =================================================
           CANVAS AREA
       ================================================= */}
 
       <div
-        className={`flex min-h-0 flex-1 items-center justify-center overflow-auto p-12 ${
-          showRulers ? "pt-8 pl-8" : ""
+        className={`flex min-h-0 flex-1 items-center justify-center overflow-auto ${
+          isMobile ? "p-4" : "p-12"
+        } ${
+          showRulers && !isMobile ? "pt-8 pl-8" : ""
         }`}
       >
         <div
@@ -1975,11 +2130,11 @@ export default function CanvasWorkspace() {
       </div>
 
       {/* =================================================
-          ZOOM BAR
+          ZOOM BAR - hidden on mobile (using bottom toolbar instead)
       ================================================= */}
 
       <div
-        className="absolute bottom-4 left-1/2 z-40 -translate-x-1/2 flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg"
+        className="absolute bottom-4 left-1/2 z-40 -translate-x-1/2 hidden lg:flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg"
       >
         <button
           type="button"

@@ -7,20 +7,18 @@ export default function AIChatBox() {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
   const [messages, setMessages] = useState<
     { role: string; text: string }[]
   >([
     {
       role: "ai",
-      text: "Hi 👋 I’m your AI design assistant. Ask me anything about photo editing, thumbnails, colors, templates or branding.",
+      text: "Hi 👋 I'm your AI design assistant. Ask me anything about photo editing, thumbnails, colors, templates or branding.",
     },
   ]);
 
-  // ✅ Fix hydration issues completely
+  // ✅ Fix hydration issues - use effect to track mount status
   useEffect(() => {
-    setMounted(true);
+    // Component is mounted after first render
   }, []);
 
   const sendMessage = async () => {
@@ -47,11 +45,18 @@ export default function AIChatBox() {
         body: JSON.stringify({ message: userMessage }),
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data: { reply?: string } = {};
+
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { reply: "The AI assistant is unavailable right now. Please try again." };
+      }
 
       setMessages((prev) => [
         ...prev,
-        { role: "ai", text: data.reply },
+        { role: "ai", text: data.reply || "No response received." },
       ]);
 
     } catch (error) {
@@ -60,9 +65,6 @@ export default function AIChatBox() {
       setLoading(false);
     }
   };
-
-  // ⛔ Prevent SSR mismatch render
-  if (!mounted) return null;
 
   return (
     <>

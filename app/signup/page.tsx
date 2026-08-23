@@ -1,36 +1,41 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "@/firebase/firebase";
+import { useAuth } from "@/context/AuthContext";
 import toast from "react-hot-toast";
-import { 
-  Sparkles, 
-  Mail, 
-  Lock, 
-  User, 
-  Eye, 
-  EyeOff, 
-  Loader2, 
+import {
+  Sparkles,
+  Mail,
+  Lock,
+  User,
+  Eye,
+  EyeOff,
+  Loader2,
   ArrowRight,
   ShieldCheck
 } from "lucide-react";
 
 export default function SignupPage() {
   const router = useRouter();
+  const { user, loading: authLoading, signUpWithEmail } = useAuth();
 
   // Form States
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  
+
   // UI States
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace("/dashboard");
+    }
+  }, [user, authLoading, router]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,46 +55,49 @@ export default function SignupPage() {
 
     try {
       setLoading(true);
-
-      // 1. Create Firebase Auth User
-      const result = await createUserWithEmailAndPassword(auth, email, password);
-
-      // 2. Update Auth Profile with Name
-      await updateProfile(result.user, {
-        displayName: name,
-      });
-
-      // 3. Save User Data to Firestore
-      await setDoc(doc(db, "users", result.user.uid), {
-        uid: result.user.uid,
-        name,
-        email,
-        image: result.user.photoURL || "",
-        role: "user",
-        createdAt: serverTimestamp(),
-      });
-
+      await signUpWithEmail(email, password, name);
       toast.success("Welcome to Mini Canva!");
       router.push("/dashboard");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Signup Error:", error);
-      toast.error(error.message || "Failed to create account");
+      const message = (error as Error).message || "Failed to create account";
+      if (message.includes("already")) {
+        toast.error("An account with this email already exists. Please login instead.");
+      } else {
+        toast.error(message);
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#020617] text-white">
+        <Loader2 className="animate-spin" size={32} />
+      </div>
+    );
+  }
+
+  if (user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#020617] text-white">
+        Redirecting...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background Ambient Glows */}
       <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[150px] pointer-events-none" />
-      
+
       {/* Mesh Grid Pattern */}
       <div className="absolute inset-0 bg-[radial-gradient(#1e293b_0.8px,transparent_0.8px)] [background-size:32px_32px] opacity-20 pointer-events-none" />
 
       <div className="w-full max-w-md bg-[#0f172a]/70 border border-slate-800/80 rounded-[32px] p-8 backdrop-blur-2xl shadow-2xl relative z-10">
-        
+
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl mb-4 text-indigo-400">

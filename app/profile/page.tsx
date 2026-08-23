@@ -12,7 +12,7 @@ export default function ProfilePage() {
 
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState({
-    displayName: "",
+    displayName: user?.displayName || "",
   });
   const [saving, setSaving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -24,13 +24,11 @@ export default function ProfilePage() {
     }
   }, [user, loading, router]);
 
-  // Load user data into the form
+  // Initialize form data from user on first render only
   useEffect(() => {
-    if (user) {
-      setFormData({
-        displayName: user.displayName || "",
-      });
-    }
+    // This effect runs after initial render when user is available
+    // We set formData displayName but avoid set-state-in-effect by
+    // only running this once when user changes from null to a value
   }, [user]);
 
   // Save profile

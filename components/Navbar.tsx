@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import logoImage from "../logo.png.png";
 
 import {
   useAuth,
@@ -160,11 +161,13 @@ export default function Navbar() {
           className="flex items-center gap-3 group"
         >
 
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition">
+          <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition">
 
-            <span className="text-white font-black text-lg">
-              M
-            </span>
+            <img
+              src={logoImage.src}
+              alt="Mini Canva AI logo"
+              className="w-full h-full object-cover"
+            />
 
           </div>
 

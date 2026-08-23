@@ -2,17 +2,19 @@
 
 import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabaseData";
 import Link from "next/link";
 
 export default function LandingPage() {
   const { user } = useAuth();
   const [totalDesigns, setTotalDesigns] = useState<number>(0);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
-  // Fetch Public Stats
+  // Fetch Public Stats (optional - gracefully handle if Supabase not configured)
   useEffect(() => {
     const fetchStats = async () => {
+      setIsLoadingStats(true);
       try {
+        const { supabase } = await import("@/lib/supabaseData");
         const { count, error } = await supabase
           .from("designs")
           .select("*", {
@@ -21,13 +23,16 @@ export default function LandingPage() {
           });
 
         if (error) {
-          console.error("Fetch Stats Error:", error.message);
-          return;
+          // Supabase not configured or table doesn't exist - silently ignore
+          setTotalDesigns(0);
+        } else {
+          setTotalDesigns(count || 0);
         }
-
-        setTotalDesigns(count || 0);
       } catch (error) {
-        console.error("Unexpected Stats Error:", error);
+        // Network error or Supabase not configured - silently ignore
+        setTotalDesigns(0);
+      } finally {
+        setIsLoadingStats(false);
       }
     };
 
@@ -43,9 +48,11 @@ export default function LandingPage() {
       <section className="relative max-w-7xl mx-auto px-6 py-20 text-center flex-grow">
         {/* Badge */}
         <span className="px-4 py-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 text-purple-400 text-sm font-medium mb-6 inline-block">
-          {totalDesigns > 0
-            ? `${totalDesigns} Designs Created Already`
-            : "AI-Powered Design Platform"}
+          {isLoadingStats
+            ? "Loading stats..."
+            : totalDesigns > 0
+              ? `${totalDesigns} Designs Created Already`
+              : "AI-Powered Design Platform"}
         </span>
 
         {/* Heading */}

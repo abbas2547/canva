@@ -55,15 +55,6 @@ export function middleware(
   }
 
   // =========================
-  // PREVENT LOGGED IN USER FROM LOGIN PAGE
-  // =========================
-  if (pathname === "/login" && token) {
-    return NextResponse.redirect(
-      new URL("/dashboard", request.url)
-    );
-  }
-
-  // =========================
   // CHECK ADMIN ROUTES
   // =========================
   const isAdminRoute =

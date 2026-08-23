@@ -73,14 +73,25 @@ export async function POST(req: Request) {
     if (!response.ok) {
       const errorData = await response.text();
       console.error("OpenRouter API error:", errorData);
-      
+
       return NextResponse.json(
         { error: "Failed to get AI response. Please try again." },
         { status: response.status }
       );
     }
 
-    const data = await response.json();
+    const text = await response.text();
+    let data: any = {};
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (parseError) {
+      console.error("OpenRouter returned invalid JSON:", parseError);
+      return NextResponse.json(
+        { error: "AI service returned an invalid response." },
+        { status: 502 }
+      );
+    }
 
     if (!data.choices?.[0]?.message?.content) {
       throw new Error("Invalid API response format");

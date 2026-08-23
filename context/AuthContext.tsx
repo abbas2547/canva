@@ -13,6 +13,7 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   createUserWithEmailAndPassword,
   signOut,
   updateProfile as firebaseUpdateProfile,
@@ -124,7 +125,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const loginWithGoogle = useCallback(async () => {
     setError(null);
     const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (err: any) {
+      if (err?.code === "auth/popup-blocked" || err?.code === "auth/popup-closed-by-user") {
+        await signInWithRedirect(auth, provider);
+      } else {
+        throw err;
+      }
+    }
   }, []);
 
   const loginWithEmail = useCallback(async (email: string, password: string) => {

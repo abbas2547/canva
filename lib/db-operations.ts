@@ -7,9 +7,7 @@ import {
   doc,
   getDoc,
   setDoc,
-  updateDoc,
   deleteDoc,
-  // orderBy removed to avoid composite index requirement
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { DesignDocument, UserDocument, DesignPage } from "@/types/design";
@@ -92,10 +90,14 @@ export async function createDesign(
 export async function updateDesign(designId: string, updates: Partial<DesignDocument>): Promise<void> {
   if (!designId) throw new Error("Design ID is required");
   try {
-    await updateDoc(doc(db, "designs", designId), {
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    });
+   await setDoc(
+  doc(db, "designs", designId),
+  {
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  },
+  { merge: true }
+);
   } catch (error) {
     console.error("Error updating design:", error);
     throw error;
@@ -106,9 +108,9 @@ export async function deleteDesign(designId: string): Promise<void> {
   if (!designId) throw new Error("Design ID is required");
   try {
     // Soft delete
-    await updateDoc(doc(db, "designs", designId), {
+    await setDoc(doc(db, "designs", designId), {
       deletedAt: new Date().toISOString(),
-    });
+    }, { merge: true });
   } catch (error) {
     console.error("Error deleting design:", error);
     throw error;
@@ -216,7 +218,7 @@ export async function createOrUpdateUserProfile(userId: string, data: Partial<Us
         ...data,
         updatedAt: now,
       };
-      await updateDoc(userRef, updates);
+      await setDoc(userRef, updates);
       const updated = await getDoc(userRef);
       return { id: updated.id, ...updated.data() } as UserDocument;
     }
@@ -232,10 +234,10 @@ export async function updateUserAICredits(userId: string, creditsUsed: number): 
     const user = await getUserProfile(userId);
     if (!user) return;
     const newCredits = Math.min(user.aiCreditsUsed + creditsUsed, user.aiCreditsLimit);
-    await updateDoc(doc(db, "users", userId), {
+    await setDoc(doc(db, "users", userId), {
       aiCreditsUsed: newCredits,
       updatedAt: new Date().toISOString(),
-    });
+    }, { merge: true });
   } catch (error) {
     console.error("Error updating AI credits:", error);
   }
@@ -247,10 +249,10 @@ export async function updateUserStorage(userId: string, storageDelta: number): P
     const user = await getUserProfile(userId);
     if (!user) return;
     const newStorage = Math.max(0, user.storageUsed + storageDelta);
-    await updateDoc(doc(db, "users", userId), {
+    await setDoc(doc(db, "users", userId), {
       storageUsed: newStorage,
       updatedAt: new Date().toISOString(),
-    });
+    }, { merge: true });
   } catch (error) {
     console.error("Error updating storage:", error);
   }

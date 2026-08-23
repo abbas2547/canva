@@ -147,8 +147,14 @@ function LoginForm() {
             </div>
           </div>
 
+          <div className="flex items-center justify-between">
+            <label className="block text-sm text-slate-400">Password</label>
+            <Link href="/forgot-password" className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition">
+              Forgot password?
+            </Link>
+          </div>
+
           <div>
-            <label className="block text-sm text-slate-400 mb-2">Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
               <input

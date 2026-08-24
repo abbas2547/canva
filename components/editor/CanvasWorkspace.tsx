@@ -874,8 +874,98 @@ export default function CanvasWorkspace() {
   }, []);
 
   /* =======================================================
-     CANVAS SIZE
-  ======================================================= */
+     PINCH GESTURES (2 fingers on touch devices)
+     - selection active  -> scales the selected object
+     - no selection      -> zooms the canvas viewport
+   ======================================================= */
+
+  useEffect(() => {
+    const fabricCanvas = fabricCanvasRef.current;
+    if (!fabricCanvas) return;
+
+    const el = fabricCanvas.upperCanvasEl;
+
+    let startDist = 0;
+    let startObjScale: { x: number; y: number } | null = null;
+    let startZoom = 1;
+    let pinching = false;
+    let changed = false;
+
+    const getDist = (touches: TouchList) =>
+      Math.hypot(
+        touches[0].clientX - touches[1].clientX,
+        touches[0].clientY - touches[1].clientY
+      );
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+      pinching = true;
+      changed = false;
+      startDist = getDist(e.touches);
+      startZoom = fabricCanvas.getZoom();
+      const obj = fabricCanvas.getActiveObject();
+      startObjScale = obj ? { x: obj.scaleX, y: obj.scaleY } : null;
+      e.preventDefault();
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!pinching || e.touches.length !== 2 || !startDist) return;
+      e.preventDefault();
+
+      const raw = getDist(e.touches) / startDist;
+      const ratio = Math.min(Math.max(raw, 0.15), 6);
+      changed = true;
+
+      const obj = fabricCanvas.getActiveObject();
+      if (obj && startObjScale && !obj.lockScalingX && !obj.lockScalingY) {
+        obj.set({
+          scaleX: Math.max(0.02, startObjScale.x * ratio),
+          scaleY: Math.max(0.02, startObjScale.y * ratio),
+        });
+        obj.setCoords();
+        fabricCanvas.requestRenderAll();
+      } else {
+        const t = e.touches;
+        const rect = el.getBoundingClientRect();
+        const center = new fabric.Point(
+          (t[0].clientX + t[1].clientX) / 2 - rect.left,
+          (t[0].clientY + t[1].clientY) / 2 - rect.top
+        );
+        const nextZoom = Math.min(Math.max(startZoom * ratio, 0.05), 5);
+        fabricCanvas.zoomToPoint(center, nextZoom);
+        // sync store/UI only — setZoom() would re-apply unanchored zoom
+        useEditorStore.setState({ zoom: nextZoom });
+        fabricCanvas.requestRenderAll();
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (!pinching) return;
+      pinching = false;
+      startObjScale = null;
+      if (changed) {
+        useEditorStore.getState().saveHistory();
+      }
+      changed = false;
+    };
+
+    el.addEventListener("touchstart", handleTouchStart, { passive: false });
+    el.addEventListener("touchmove", handleTouchMove, { passive: false });
+    el.addEventListener("touchend", handleTouchEnd);
+    el.addEventListener("touchcancel", handleTouchEnd);
+
+    return () => {
+      el.removeEventListener("touchstart", handleTouchStart);
+      el.removeEventListener("touchmove", handleTouchMove);
+      el.removeEventListener("touchend", handleTouchEnd);
+      el.removeEventListener("touchcancel", handleTouchEnd);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady]);
+
+  /* =======================================================
+      CANVAS SIZE
+   ======================================================= */
 
   useEffect(() => {
     const fabricCanvas =

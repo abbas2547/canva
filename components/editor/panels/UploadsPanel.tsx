@@ -3,49 +3,52 @@
 import { useState, useRef } from "react";
 import { Upload, Image as ImageIcon, X } from "lucide-react";
 import { useEditorStore } from "@/store/editorStore";
-import * as fabric from "fabric";
+import { useAuth } from "@/context/AuthContext";
+import toast from "react-hot-toast";
+import { addUploadedImageToCanvas, placeImageOnCanvas } from "@/lib/image-upload";
 
 export default function UploadsPanel() {
   const [uploads, setUploads] = useState<
     Array<{ id: string; url: string; name: string }>
   >([]);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvas = useEditorStore((s) => s.canvas);
   const saveHistory = useEditorStore((s) => s.saveHistory);
+  const { user } = useAuth();
 
   const handleUpload = async (file: File) => {
     if (!canvas) return;
     if (!file.type.startsWith("image/")) return;
 
+    if (isUploading) return;
+    setIsUploading(true);
+    const toastId = toast.loading("Processing image...");
     try {
-      const url = URL.createObjectURL(file);
-      const image = await fabric.FabricImage.fromURL(url);
+      const result = await addUploadedImageToCanvas(canvas, user?.uid ?? "", file);
 
-      if (image.width && image.width > 600) {
-        image.scaleToWidth(600);
-      }
-
-      const canvasWidth = canvas.getWidth();
-      const canvasHeight = canvas.getHeight();
-
-      image.set({
-        left: (canvasWidth - (image.getScaledWidth() || 0)) / 2,
-        top: (canvasHeight - (image.getScaledHeight() || 0)) / 2,
-        selectable: true,
-        evented: true,
-      });
-
-      canvas.add(image);
-      canvas.setActiveObject(image);
+      canvas.setActiveObject(result.image);
       canvas.requestRenderAll();
       saveHistory();
 
+      if (result.stored) {
+        toast.success("Image uploaded", { id: toastId });
+      } else {
+        toast.success("Image added", { id: toastId });
+      }
+
       setUploads((prev) => [
         ...prev,
-        { id: Date.now().toString(), url, name: file.name },
+        { id: Date.now().toString(), url: result.url, name: file.name },
       ]);
     } catch (error) {
       console.error("Image upload error:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to add image",
+        { id: toastId }
+      );
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -116,28 +119,16 @@ export default function UploadsPanel() {
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
                   <button
-                    onClick={() => {
-                      const img = new Image();
-                      img.onload = async () => {
-                        if (!canvas) return;
-                        const fabricImg = await fabric.FabricImage.fromElement(img);
-                        if (fabricImg) {
-                          const cw = canvas.getWidth();
-                          const ch = canvas.getHeight();
-                          if (fabricImg.width && fabricImg.width > 400) {
-                            fabricImg.scaleToWidth(400);
-                          }
-                          fabricImg.set({
-                            left: (cw - (fabricImg.getScaledWidth() || 0)) / 2,
-                            top: (ch - (fabricImg.getScaledHeight() || 0)) / 2,
-                          });
-                          canvas.add(fabricImg);
-                          canvas.setActiveObject(fabricImg);
-                          canvas.requestRenderAll();
-                          saveHistory();
-                        }
-                      };
-                      img.src = upload.url;
+                    onClick={async () => {
+                      if (!canvas) return;
+                      try {
+                        const image = await placeImageOnCanvas(canvas, upload.url, 400);
+                        canvas.setActiveObject(image);
+                        canvas.requestRenderAll();
+                        saveHistory();
+                      } catch (error) {
+                        console.error("Error re-adding image:", error);
+                      }
                     }}
                     className="h-7 w-7 rounded-full bg-white/90 flex items-center justify-center text-slate-700 hover:bg-white"
                   >

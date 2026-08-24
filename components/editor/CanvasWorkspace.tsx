@@ -1,5 +1,4 @@
 "use client";
-import { doc, setDoc } from "firebase/firestore";
 import {
   useCallback,
   useEffect,
@@ -26,6 +25,9 @@ import {
 
 import { useEditorStore } from "@/store/editorStore";
 import { useCanvasSelection } from "@/hooks/useCanvasSelection";
+import { useAuth } from "@/context/AuthContext";
+import toast from "react-hot-toast";
+import { addUploadedImageToCanvas } from "@/lib/image-upload";
 
 /* =========================================================
    TYPES
@@ -169,8 +171,10 @@ export default function CanvasWorkspace() {
   }>({ horizontal: [], vertical: [] });
 
   /* =======================================================
-     ZUSTAND
-  ======================================================= */
+      ZUSTAND
+   ======================================================= */
+
+  const { user } = useAuth();
 
   const setCanvas =
     useEditorStore(
@@ -684,81 +688,37 @@ export default function CanvasWorkspace() {
             "image/"
           )
         ) {
-          console.error(
-            "Selected file is not an image."
-          );
-
+          toast.error("Selected file is not an image.");
           return;
         }
 
+        const toastId = toast.loading("Processing image...");
         try {
-          const imageURL =
-            URL.createObjectURL(
-              file
-            );
-
-          const image =
-            await fabric.FabricImage.fromURL(
-              imageURL
-            );
-
-          URL.revokeObjectURL(
-            imageURL
+          const result = await addUploadedImageToCanvas(
+            fabricCanvas,
+            user?.uid ?? "",
+            file
           );
 
-          if (
-            image.width &&
-            image.width > 600
-          ) {
-            image.scaleToWidth(
-              600
-            );
-          }
+          setObjectIdentity(result.image, "Image");
 
-          const imageWidth =
-            image.getScaledWidth();
-
-          const imageHeight =
-            image.getScaledHeight();
-
-          image.set({
-            left:
-              (fabricCanvas.getWidth() -
-                imageWidth) /
-              2,
-
-            top:
-              (fabricCanvas.getHeight() -
-                imageHeight) /
-              2,
-
-            selectable: true,
-
-            evented: true,
-          });
-
-          setObjectIdentity(
-            image,
-            "Image"
-          );
-
-          fabricCanvas.add(image);
-
-          fabricCanvas.setActiveObject(
-            image
-          );
-
+          fabricCanvas.setActiveObject(result.image);
           fabricCanvas.requestRenderAll();
-
           saveCanvasHistory();
+          if (result.stored) {
+            toast.success("Image uploaded", { id: toastId });
+          } else {
+            toast.success("Image added", { id: toastId });
+          }
         } catch (error) {
-          console.error(
-            "Image loading error:",
-            error
+          console.error("Image upload error:", error);
+          toast.error(
+            error instanceof Error ? error.message : "Failed to add image",
+            { id: toastId }
           );
         }
       },
-      [saveCanvasHistory]
+      [saveCanvasHistory, user]
     );
 
   /* =======================================================

@@ -1,4 +1,4 @@
-import { db, storage } from "@/lib/firebaseClient";
+import { db } from "@/lib/firebaseClient";
 import {
   collection,
   query,
@@ -7,9 +7,9 @@ import {
   doc,
   getDoc,
   setDoc,
+  updateDoc,
   deleteDoc,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { DesignDocument, UserDocument, DesignPage } from "@/types/design";
 
 // =====================================================
@@ -90,14 +90,47 @@ export async function createDesign(
 export async function updateDesign(designId: string, updates: Partial<DesignDocument>): Promise<void> {
   if (!designId) throw new Error("Design ID is required");
   try {
-   await setDoc(
-  doc(db, "designs", designId),
-  {
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  },
-  { merge: true }
-);
+    const docRef = doc(db, "designs", designId);
+    const now = new Date().toISOString();
+    const updateData: Record<string, unknown> = { updatedAt: now };
+
+    if (updates.title !== undefined) updateData.title = updates.title;
+    if (updates.width !== undefined) updateData.width = updates.width;
+    if (updates.height !== undefined) updateData.height = updates.height;
+    if (updates.activePageId !== undefined) updateData.activePageId = updates.activePageId;
+    if (updates.thumbnail !== undefined) updateData.thumbnail = updates.thumbnail;
+    if (updates.isPublic !== undefined) updateData.isPublic = updates.isPublic;
+    if (updates.description !== undefined) updateData.description = updates.description;
+    if (updates.tags !== undefined) updateData.tags = updates.tags;
+    if (updates.deletedAt !== undefined) updateData.deletedAt = updates.deletedAt;
+
+    if (updates.pages !== undefined) {
+      // Read only scalar fields from existing — never propagate array fields that may be corrupted
+      const docSnap = await getDoc(docRef);
+      const existing = docSnap.exists() ? (docSnap.data() as Record<string, unknown>) : {};
+      const fullData: Record<string, unknown> = {
+        userId: existing.userId ?? "",
+        title: updateData.title ?? existing.title ?? "",
+        description: (typeof existing.description === "string" ? existing.description : "") ?? (typeof updateData.description === "string" ? updateData.description : ""),
+        thumbnail: (typeof existing.thumbnail === "string" ? existing.thumbnail : "") ?? (typeof updateData.thumbnail === "string" ? updateData.thumbnail : ""),
+        pages: updates.pages,
+        activePageId: (typeof existing.activePageId === "string" ? existing.activePageId : "page-1") ?? updateData.activePageId,
+        width: (typeof existing.width === "number" ? existing.width : 1080) ?? updateData.width,
+        height: (typeof existing.height === "number" ? existing.height : 1080) ?? updateData.height,
+        templateId: (typeof existing.templateId === "string" || existing.templateId === null ? existing.templateId : null),
+        isPublic: (typeof existing.isPublic === "boolean" ? existing.isPublic : false) ?? updateData.isPublic,
+        downloads: (typeof existing.downloads === "number" ? existing.downloads : 0),
+        views: (typeof existing.views === "number" ? existing.views : 0),
+        likes: (typeof existing.likes === "number" ? existing.likes : 0),
+        tags: Array.isArray(updateData.tags) ? updateData.tags : [],
+        createdAt: (typeof existing.createdAt === "string" ? existing.createdAt : now),
+        updatedAt: now,
+        deletedAt: existing.deletedAt ?? null,
+      };
+      await setDoc(docRef, fullData);
+    } else {
+      await updateDoc(docRef, updateData);
+    }
   } catch (error) {
     console.error("Error updating design:", error);
     throw error;
@@ -154,10 +187,17 @@ export async function uploadFileToStorage(
 ): Promise<string> {
   if (!userId) throw new Error("User ID is required");
   try {
-    const fileName = `${folder}/${userId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
-    const storageRef = ref(storage, fileName);
-    await uploadBytes(storageRef, file);
-    return await getDownloadURL(storageRef);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.url) {
+      throw new Error(data?.error || `Upload failed (${res.status})`);
+    }
+    return data.url as string;
   } catch (error) {
     console.error("Error uploading file:", error);
     throw error;

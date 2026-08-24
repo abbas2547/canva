@@ -12,6 +12,9 @@ import {
   Layers3,
   Settings2,
   Sparkles,
+  SlidersHorizontal,
+  Crop,
+  Wand2,
 } from "lucide-react";
 
 import { useEditorStore } from "@/store/editorStore";
@@ -58,6 +61,27 @@ const tools = [
     icon: Frame,
     color: "text-pink-500",
     bg: "bg-pink-50",
+  },
+  {
+    id: "filters",
+    label: "Filters",
+    icon: Wand2,
+    color: "text-purple-500",
+    bg: "bg-purple-50",
+  },
+  {
+    id: "adjustments",
+    label: "Adjust",
+    icon: SlidersHorizontal,
+    color: "text-teal-500",
+    bg: "bg-teal-50",
+  },
+  {
+    id: "crop",
+    label: "Crop",
+    icon: Crop,
+    color: "text-orange-500",
+    bg: "bg-orange-50",
   },
   {
     id: "stickers",

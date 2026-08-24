@@ -456,6 +456,7 @@ export default function PropertyPanel() {
               </button>
               <button
                 type="button"
+                onClick={() => useEditorStore.getState().setActiveTool("filters")}
                 className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 <SlidersHorizontal size={16} />
@@ -463,6 +464,7 @@ export default function PropertyPanel() {
               </button>
               <button
                 type="button"
+                onClick={() => useEditorStore.getState().setActiveTool("crop")}
                 className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 <Square size={16} />

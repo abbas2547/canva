@@ -19,6 +19,9 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Wand2,
+  SlidersHorizontal,
+  Crop,
 } from "lucide-react";
 
 import { useEditorStore } from "@/store/editorStore";
@@ -38,6 +41,9 @@ import FramesPanel from "./panels/FramesPanel";
 import StickersPanel from "./panels/StickersPanel";
 import BackgroundPanel from "./panels/BackgroundPanel";
 import LayersPanel from "./panels/LayersPanel";
+import FiltersPanel from "./panels/FiltersPanel";
+import AdjustmentsPanel from "./panels/AdjustmentsPanel";
+import CropRotatePanel from "./panels/CropRotatePanel";
 import { useDesignSync } from "@/hooks/useDesignSync";
 import ShareModal from "./ShareModal";
 
@@ -55,6 +61,9 @@ function MobileToolPanel({ onClose }: { onClose: () => void }) {
     elements: { title: "Elements", icon: Shapes, description: "Add shapes and design elements." },
     pexels: { title: "Pexels Photos", icon: ImageIcon, description: "Search and add photos from Pexels." },
     frames: { title: "Frames", icon: Frame, description: "Add image frames." },
+    filters: { title: "Filters", icon: Wand2, description: "Apply photo filters and effects." },
+    adjustments: { title: "Adjustments", icon: SlidersHorizontal, description: "Fine-tune image properties." },
+    crop: { title: "Crop & Rotate", icon: Crop, description: "Crop, rotate, and flip images." },
     stickers: { title: "Stickers", icon: Smile, description: "Add decorative stickers." },
     background: { title: "Background", icon: Palette, description: "Change your canvas background." },
     layers: { title: "Layers", icon: Layers3, description: "Manage your design layers." },
@@ -68,6 +77,9 @@ function MobileToolPanel({ onClose }: { onClose: () => void }) {
     { id: "elements", label: "Elements", icon: Shapes, color: "text-amber-500", bg: "bg-amber-50" },
     { id: "pexels", label: "Photos", icon: ImageIcon, color: "text-cyan-500", bg: "bg-cyan-50" },
     { id: "frames", label: "Frames", icon: Frame, color: "text-pink-500", bg: "bg-pink-50" },
+    { id: "filters", label: "Filters", icon: Wand2, color: "text-purple-500", bg: "bg-purple-50" },
+    { id: "adjustments", label: "Adjust", icon: SlidersHorizontal, color: "text-teal-500", bg: "bg-teal-50" },
+    { id: "crop", label: "Crop", icon: Crop, color: "text-orange-500", bg: "bg-orange-50" },
     { id: "stickers", label: "Stickers", icon: Smile, color: "text-orange-500", bg: "bg-orange-50" },
     { id: "background", label: "BG", icon: Palette, color: "text-rose-500", bg: "bg-rose-50" },
     { id: "layers", label: "Layers", icon: Layers3, color: "text-indigo-500", bg: "bg-indigo-50" },
@@ -85,6 +97,9 @@ function MobileToolPanel({ onClose }: { onClose: () => void }) {
       case "elements": return <ElementsPanel />;
       case "pexels": return <ImagesPanel />;
       case "frames": return <FramesPanel />;
+      case "filters": return <FiltersPanel />;
+      case "adjustments": return <AdjustmentsPanel />;
+      case "crop": return <CropRotatePanel />;
       case "stickers": return <StickersPanel />;
       case "background": return <BackgroundPanel />;
       case "layers": return <LayersPanel />;
@@ -224,6 +239,9 @@ function DesktopToolPanel() {
     elements: { title: "Elements", icon: Shapes, description: "Add shapes and design elements." },
     pexels: { title: "Pexels Photos", icon: ImageIcon, description: "Search and add photos from Pexels." },
     frames: { title: "Frames", icon: Frame, description: "Add image frames." },
+    filters: { title: "Filters", icon: Wand2, description: "Apply photo filters and effects." },
+    adjustments: { title: "Adjustments", icon: SlidersHorizontal, description: "Fine-tune image properties." },
+    crop: { title: "Crop & Rotate", icon: Crop, description: "Crop, rotate, and flip images." },
     stickers: { title: "Stickers", icon: Smile, description: "Add decorative stickers." },
     background: { title: "Background", icon: Palette, description: "Change your canvas background." },
     layers: { title: "Layers", icon: Layers3, description: "Manage your design layers." },
@@ -241,6 +259,9 @@ function DesktopToolPanel() {
       case "elements": return <ElementsPanel />;
       case "pexels": return <ImagesPanel />;
       case "frames": return <FramesPanel />;
+      case "filters": return <FiltersPanel />;
+      case "adjustments": return <AdjustmentsPanel />;
+      case "crop": return <CropRotatePanel />;
       case "stickers": return <StickersPanel />;
       case "background": return <BackgroundPanel />;
       case "layers": return <LayersPanel />;
@@ -345,11 +366,26 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
 
   useEffect(() => {
     if (!canvas) return;
-    const handleObjectModified = () => { autoSave(); };
+
+    let isInitializing = true;
+
+    const handleObjectModified = () => {
+      if (!isInitializing) {
+        autoSave();
+      }
+    };
+
     canvas.on("object:modified", handleObjectModified);
     canvas.on("object:added", handleObjectModified);
     canvas.on("object:removed", handleObjectModified);
+
+    // Allow auto-save after a short delay to let initial load complete
+    const initTimer = setTimeout(() => {
+      isInitializing = false;
+    }, 2000);
+
     return () => {
+      clearTimeout(initTimer);
       canvas.off("object:modified", handleObjectModified);
       canvas.off("object:added", handleObjectModified);
       canvas.off("object:removed", handleObjectModified);

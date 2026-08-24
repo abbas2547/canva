@@ -20,6 +20,27 @@ export default function FramesPanel() {
     const centerX = canvas.getWidth() / 2;
     const centerY = canvas.getHeight() / 2;
 
+    if (frame.shape === "solid") {
+      const frameRect = new fabric.Rect({
+        width: frame.width,
+        height: frame.height,
+        fill: "transparent",
+        stroke: frame.strokeColor || "#000000",
+        strokeWidth: frame.strokeWidth || 8,
+        left: centerX - frame.width / 2,
+        top: centerY - frame.height / 2,
+        selectable: true,
+        evented: true,
+        name: frame.name,
+      });
+
+      canvas.add(frameRect);
+      canvas.setActiveObject(frameRect);
+      canvas.requestRenderAll();
+      saveHistory();
+      return;
+    }
+
     let clipPath: fabric.FabricObject | null = null;
 
     switch (frame.shape) {
@@ -134,6 +155,19 @@ export default function FramesPanel() {
 
   const renderFramePreview = (frame: FrameItem) => {
     const size = 40;
+
+    if (frame.shape === "solid") {
+      return (
+        <div
+          className="bg-transparent"
+          style={{
+            width: size,
+            height: size * 0.75,
+            border: `${Math.max(2, (frame.strokeWidth || 8) / 3)}px solid ${frame.strokeColor || "#000000"}`,
+          }}
+        />
+      );
+    }
 
     switch (frame.shape) {
       case "circle":

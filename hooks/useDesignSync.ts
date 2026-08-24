@@ -1,11 +1,41 @@
 "use client";
 
 import { useCallback, useRef } from "react";
-import * as fabric from "fabric";
 import { useAuth } from "@/context/AuthContext";
 import { useEditorStore } from "@/store/editorStore";
 import { getDesignById, createDesign, updateDesign } from "@/lib/db-operations";
+import { migrateEmbeddedImages, ensureUntaintedImage } from "@/lib/image-upload";
+import * as fabric from "fabric";
 import toast from "react-hot-toast";
+
+/* =========================================================
+   SANITIZE JSON - remove undefined/Infinity/NaN that
+   Firestore rejects
+   ========================================================= */
+
+function sanitizeForFirestore(value: unknown): unknown {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return null;
+    return value;
+  }
+  if (typeof value === "string" || typeof value === "boolean") return value;
+  if (Array.isArray(value)) {
+    return value.map(sanitizeForFirestore);
+  }
+  if (typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      result[key] = sanitizeForFirestore(val);
+    }
+    return result;
+  }
+  return null;
+}
+
+/* =========================================================
+   HOOK
+   ========================================================= */
 
 export function useDesignSync() {
   const { user } = useAuth();
@@ -13,23 +43,53 @@ export function useDesignSync() {
   const projectName = useEditorStore((state) => state.projectName);
   const setDesignId = useEditorStore((state) => state.setDesignId);
   const setProjectName = useEditorStore((state) => state.setProjectName);
-  const canvas = useEditorStore((state) => state.canvas);
-  const canvasWidth = useEditorStore((state) => state.canvasWidth);
-  const canvasHeight = useEditorStore((state) => state.canvasHeight);
   const isSaving = useEditorStore((state) => state.isSaving);
   const setIsSaving = useEditorStore((state) => state.setIsSaving);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isLoadingRef = useRef(false);
 
   const loadDesign = useCallback(
     async (id: string) => {
       if (!user) return;
 
+      let attempts = 0;
+      const maxAttempts = 50;
+      const retryInterval = 200;
+
+      const waitForCanvas = (): Promise<boolean> => {
+        return new Promise((resolve) => {
+          const check = () => {
+            const currentCanvas = useEditorStore.getState().canvas;
+            if (currentCanvas) {
+              resolve(true);
+            } else if (attempts >= maxAttempts) {
+              resolve(false);
+            } else {
+              attempts++;
+              setTimeout(check, retryInterval);
+            }
+          };
+          check();
+        });
+      };
+
+      const canvasReady = await waitForCanvas();
+      if (!canvasReady) {
+        console.error("Canvas did not initialize in time");
+        toast.error("Failed to load design: canvas not ready");
+        return;
+      }
+
+      const currentCanvas = useEditorStore.getState().canvas;
+      if (!currentCanvas) return;
+
       try {
+        isLoadingRef.current = true;
         setIsSaving(true);
         const design = await getDesignById(id);
 
-        if (design && canvas) {
+        if (design) {
           setDesignId(design.id);
           setProjectName(design.title);
 
@@ -37,9 +97,21 @@ export function useDesignSync() {
           const page = pages.find((p) => p.id === design.activePageId) || pages[0];
           if (page) {
             const json = JSON.parse(page.json);
-            await canvas.loadFromJSON(json);
-            canvas.setDimensions({ width: design.width, height: design.height });
-            canvas.requestRenderAll();
+            await currentCanvas.loadFromJSON(json);
+
+            // Re-load any images that were saved without CORS approval so
+            // filters/exports don't fail with tainted-canvas errors
+            const imageObjects = currentCanvas
+              .getObjects()
+              .filter((o): o is import("fabric").FabricImage => o instanceof fabric.FabricImage);
+            await Promise.all(imageObjects.map((img) => ensureUntaintedImage(img)));
+
+            if (design.width && design.height) {
+              currentCanvas.setDimensions({ width: design.width, height: design.height });
+              useEditorStore.getState().setCanvasSize(design.width, design.height);
+            }
+
+            currentCanvas.requestRenderAll();
 
             useEditorStore.getState().refreshLayers();
             useEditorStore.getState().saveHistory();
@@ -50,36 +122,66 @@ export function useDesignSync() {
         console.error("Failed to load design:", error);
         toast.error("Failed to load design");
       } finally {
+        isLoadingRef.current = false;
         setIsSaving(false);
       }
     },
-    [user, canvas, setDesignId, setProjectName, setIsSaving]
+    [user, setDesignId, setProjectName, setIsSaving]
   );
 
   const saveDesign = useCallback(
     async (options?: { showToast?: boolean; debounce?: boolean }) => {
-      if (!user || !canvas || !designId) {
+      const currentDesignId = useEditorStore.getState().designId;
+
+      if (!user || !currentDesignId) {
         if (options?.showToast) {
           toast.error("No design to save");
         }
         return;
       }
 
+      if (isLoadingRef.current) return;
       if (isSaving) return;
 
       const doSave = async () => {
+        const latestCanvas = useEditorStore.getState().canvas;
+        const latestDesignId = useEditorStore.getState().designId;
+        const latestProjectName = useEditorStore.getState().projectName;
+        const latestCanvasWidth = useEditorStore.getState().canvasWidth;
+        const latestCanvasHeight = useEditorStore.getState().canvasHeight;
+
+        if (!user || !latestCanvas || !latestDesignId) return;
+        if (isLoadingRef.current) return;
+
         try {
           setIsSaving(true);
 
-          const json = JSON.stringify(canvas.toJSON());
-          const thumbnail = canvas.toDataURL({
-            format: "png",
-            multiplier: 0.2,
-            quality: 0.8,
-          });
+          const rawJson = latestCanvas.toJSON();
+          const sanitizedJson = sanitizeForFirestore(rawJson);
+          // Replace large embedded base64 images with Storage URLs so the
+          // document stays under Firestore's ~1MB limit
+          await migrateEmbeddedImages(
+            sanitizedJson as Record<string, unknown>,
+            user.uid
+          );
+          const json = JSON.stringify(sanitizedJson);
 
-          await updateDesign(designId, {
-            title: projectName,
+          let thumbnail = "";
+          try {
+            const thumbData = latestCanvas.toDataURL({
+              format: "png",
+              multiplier: 0.15,
+              quality: 0.6,
+            });
+            if (thumbData && thumbData.length < 500000) {
+              thumbnail = thumbData;
+            }
+          } catch {
+            thumbnail = "";
+          }
+
+          await updateDesign(latestDesignId, {
+            title: latestProjectName,
             pages: [
               {
                 id: "page-1",
@@ -88,8 +190,8 @@ export function useDesignSync() {
               },
             ],
             activePageId: "page-1",
-            width: canvasWidth,
-            height: canvasHeight,
+            width: latestCanvasWidth,
+            height: latestCanvasHeight,
             thumbnail,
           });
 
@@ -112,18 +214,24 @@ export function useDesignSync() {
         if (saveTimeoutRef.current) {
           clearTimeout(saveTimeoutRef.current);
         }
-        saveTimeoutRef.current = setTimeout(doSave, 1000);
+        saveTimeoutRef.current = setTimeout(doSave, 1200);
       } else {
         await doSave();
       }
     },
-    [user, canvas, designId, projectName, canvasWidth, canvasHeight, isSaving, setIsSaving]
+    [user, isSaving, setIsSaving]
   );
 
   const createNewDesign = useCallback(
     async (title: string = "Untitled Design", width: number = 1080, height: number = 1080) => {
-      if (!user || !canvas) {
+      if (!user) {
         toast.error("Not authenticated");
+        return null;
+      }
+
+      const currentCanvas = useEditorStore.getState().canvas;
+      if (!currentCanvas) {
+        toast.error("Canvas not ready");
         return null;
       }
 
@@ -134,12 +242,13 @@ export function useDesignSync() {
         setDesignId(design.id);
         setProjectName(design.title);
 
-        canvas.clear();
-        canvas.backgroundColor = "#ffffff";
-        canvas.setDimensions({ width, height });
-        canvas.setZoom(1);
-        canvas.requestRenderAll();
+        currentCanvas.clear();
+        currentCanvas.backgroundColor = "#ffffff";
+        currentCanvas.setDimensions({ width, height });
+        currentCanvas.setZoom(1);
+        currentCanvas.requestRenderAll();
 
+        useEditorStore.getState().setCanvasSize(width, height);
         useEditorStore.getState().refreshLayers();
         useEditorStore.getState().saveHistory();
         useEditorStore.getState().markSaved();
@@ -154,7 +263,7 @@ export function useDesignSync() {
         setIsSaving(false);
       }
     },
-    [user, canvas, setDesignId, setProjectName, setIsSaving]
+    [user, setDesignId, setProjectName, setIsSaving]
   );
 
   const autoSave = useCallback(() => {

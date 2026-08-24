@@ -190,7 +190,20 @@ export default function AdjustmentsPanel() {
         return;
       }
 
-      const filters: any[] = [];
+      // Keep look filters from FiltersPanel; rebuild only adjustment-owned ones
+      const MANAGED_TYPES = new Set([
+        "Brightness",
+        "Contrast",
+        "Saturation",
+        "HueRotation",
+        "Noise",
+      ]);
+      const holder = obj as unknown as { filters?: any[] };
+      const preserved = (holder.filters ?? []).filter(
+        (f) => f?.__adjust !== true && !MANAGED_TYPES.has(f?.type)
+      );
+
+      const managed: any[] = [];
 
       adjustments.forEach((adj) => {
         const value = newValues[adj.id];
@@ -198,44 +211,49 @@ export default function AdjustmentsPanel() {
 
         const normalizedValue = (value - adj.default) / (adj.max - adj.default);
 
+        const mark = (filter: any) => {
+          filter.__adjust = true;
+          managed.push(filter);
+        };
+
         switch (adj.filterType) {
           case "Brightness":
-            filters.push(
+            mark(
               new (fabric.filters as any).Brightness({
                 brightness: normalizedValue * adj.filterProps.brightness,
               })
             );
             break;
           case "Contrast":
-            filters.push(
+            mark(
               new (fabric.filters as any).Contrast({
                 contrast: normalizedValue * adj.filterProps.contrast,
               })
             );
             break;
           case "Saturation":
-            filters.push(
+            mark(
               new (fabric.filters as any).Saturation({
                 saturation: normalizedValue * adj.filterProps.saturation,
               })
             );
             break;
           case "HueRotation":
-            filters.push(
+            mark(
               new (fabric.filters as any).HueRotation({
                 rotation: normalizedValue * adj.filterProps.rotation,
               })
             );
             break;
           case "Convolute":
-            filters.push(
+            mark(
               new (fabric.filters as any).Convolute({
                 matrix: [0, -1, 0, -1, 5 + normalizedValue * 4, -1, 0, -1, 0],
               })
             );
             break;
           case "Noise":
-            filters.push(
+            mark(
               new (fabric.filters as any).Noise({
                 noise: normalizedValue * adj.filterProps.noise * 200,
               })
@@ -244,15 +262,24 @@ export default function AdjustmentsPanel() {
         }
       });
 
-      // Clear existing filters by applying empty, then set new ones
+      // Apply on top of preserved look filters
       try {
-        const filterHolder = obj as unknown as { filters: any[] };
-        filterHolder.filters = filters;
+        holder.filters = [...preserved, ...managed];
         obj.applyFilters();
         canvas.requestRenderAll();
       } catch (error) {
-        console.error("Adjustment failed:", error);
-        toast.error("Failed to apply adjustments");
+        console.error("Adjustment failed, retrying after CORS reload:", error);
+        try {
+          const ok = await ensureUntaintedImage(obj, true);
+          if (!ok) throw new Error("source blocks cross-origin load");
+          holder.filters = [...preserved, ...managed];
+          obj.applyFilters();
+          canvas.requestRenderAll();
+        } catch (retryError) {
+          console.error("Adjustment retry failed:", retryError);
+          toast.error("This image blocks adjustments. Re-upload it to use them.");
+          return;
+        }
       }
     },
     [canvas, activeObject]

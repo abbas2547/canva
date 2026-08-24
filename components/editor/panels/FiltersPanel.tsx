@@ -17,9 +17,13 @@ interface FilterPreset {
   apply: (obj: fabric.FabricImage, canvas: fabric.Canvas) => void;
 }
 
+/* Presets replace the previous look but never touch adjustment sliders
+   (filters tagged __adjust are owned by AdjustmentsPanel). */
 function clearFilters(obj: fabric.FabricImage) {
-  (obj as any).filters = [];
-  obj.applyFilters();
+  const existing = ((obj as unknown as { filters?: any[] }).filters ?? []) as any[];
+  (obj as unknown as { filters: any[] }).filters = existing.filter(
+    (f) => f?.__adjust === true
+  );
 }
 
 function addFilter(obj: fabric.FabricImage, filter: any) {
@@ -287,17 +291,22 @@ export default function FiltersPanel() {
     async (preset: FilterPreset) => {
       if (!canvas || !activeObject || activeObject.type !== "image") return;
       const obj = activeObject as fabric.FabricImage;
-      const ok = await ensureUntaintedImage(obj);
-      if (!ok) {
-        toast.error("This image's source blocks editing. Re-upload it to use filters.");
-        return;
-      }
+      await ensureUntaintedImage(obj);
       try {
         preset.apply(obj, canvas);
       } catch (error) {
-        console.error("Filter failed:", error);
-        toast.error("Failed to apply filter");
-        return;
+        console.error("Filter failed, retrying after CORS reload:", error);
+        try {
+          // Taint can survive edge cases (cached textures from earlier
+          // elements) — hard-reload the source and retry exactly once
+          const ok = await ensureUntaintedImage(obj, true);
+          if (!ok) throw new Error("source blocks cross-origin load");
+          preset.apply(obj, canvas);
+        } catch (retryError) {
+          console.error("Filter retry failed:", retryError);
+          toast.error("This image blocks filters. Re-upload it to use them.");
+          return;
+        }
       }
       setActiveFilter(preset.name);
       saveHistory();

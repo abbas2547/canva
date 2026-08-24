@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useEditorStore } from "@/store/editorStore";
 import { getDesignById, createDesign, updateDesign } from "@/lib/db-operations";
 import { migrateEmbeddedImages, ensureUntaintedImage } from "@/lib/image-upload";
+import { saveController } from "@/lib/save-controller";
 import * as fabric from "fabric";
 import toast from "react-hot-toast";
 
@@ -46,8 +47,8 @@ export function useDesignSync() {
   const isSaving = useEditorStore((state) => state.isSaving);
   const setIsSaving = useEditorStore((state) => state.setIsSaving);
 
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isLoadingRef = useRef(false);
+  const lastFailToastRef = useRef(0);
 
   const loadDesign = useCallback(
     async (id: string) => {
@@ -129,21 +130,9 @@ export function useDesignSync() {
     [user, setDesignId, setProjectName, setIsSaving]
   );
 
-  const saveDesign = useCallback(
-    async (options?: { showToast?: boolean; debounce?: boolean }) => {
-      const currentDesignId = useEditorStore.getState().designId;
-
-      if (!user || !currentDesignId) {
-        if (options?.showToast) {
-          toast.error("No design to save");
-        }
-        return;
-      }
-
-      if (isLoadingRef.current) return;
-      if (isSaving) return;
-
-      const doSave = async () => {
+  const buildSaver = useCallback(
+    (mode: "manual" | "auto" = "auto") =>
+      async () => {
         const latestCanvas = useEditorStore.getState().canvas;
         const latestDesignId = useEditorStore.getState().designId;
         const latestProjectName = useEditorStore.getState().projectName;
@@ -158,8 +147,6 @@ export function useDesignSync() {
 
           const rawJson = latestCanvas.toJSON();
           const sanitizedJson = sanitizeForFirestore(rawJson);
-          // Replace large embedded base64 images with Storage URLs so the
-          // document stays under Firestore's ~1MB limit
           await migrateEmbeddedImages(
             sanitizedJson as Record<string, unknown>,
             user.uid
@@ -182,13 +169,7 @@ export function useDesignSync() {
 
           await updateDesign(latestDesignId, {
             title: latestProjectName,
-            pages: [
-              {
-                id: "page-1",
-                name: "Page 1",
-                json,
-              },
-            ],
+            pages: [{ id: "page-1", name: "Page 1", json }],
             activePageId: "page-1",
             width: latestCanvasWidth,
             height: latestCanvasHeight,
@@ -196,31 +177,56 @@ export function useDesignSync() {
           });
 
           useEditorStore.getState().markSaved();
-
-          if (options?.showToast) {
-            toast.success("Design saved");
-          }
+          console.debug("[autosave] saved", latestDesignId);
+          if (mode === "manual") toast.success("Design saved");
         } catch (error) {
           console.error("Failed to save design:", error);
-          if (options?.showToast) {
+          if (mode === "manual") {
             toast.error("Failed to save design");
+          } else {
+            const now = Date.now();
+            if (now - lastFailToastRef.current > 20000) {
+              lastFailToastRef.current = now;
+              toast.error("Auto-save failed. Your changes will retry.");
+            }
           }
         } finally {
           setIsSaving(false);
         }
-      };
-
-      if (options?.debounce) {
-        if (saveTimeoutRef.current) {
-          clearTimeout(saveTimeoutRef.current);
-        }
-        saveTimeoutRef.current = setTimeout(doSave, 1200);
-      } else {
-        await doSave();
-      }
-    },
-    [user, isSaving, setIsSaving]
+      },
+    [user, setIsSaving]
   );
+
+  const saveDesign = useCallback(
+    (options?: { showToast?: boolean; debounce?: boolean }) => {
+      const currentDesignId = useEditorStore.getState().designId;
+
+      if (!user || !currentDesignId) {
+        if (options?.showToast) {
+          toast.error("No design to save");
+        }
+        return;
+      }
+
+      if (isLoadingRef.current) return;
+
+      saveController.request(
+        buildSaver(options?.showToast ? "manual" : "auto"),
+        options?.debounce ? 800 : 0
+      );
+    },
+    [user, buildSaver]
+  );
+
+  const flushSave = useCallback(() => {
+    const store = useEditorStore.getState();
+    if (!user || !store.designId) return;
+    if (isLoadingRef.current) return;
+
+    // Run immediately unless a save is already in flight; the controller
+    // queues it so the latest state always lands.
+    saveController.flush(buildSaver("auto"));
+  }, [user, buildSaver]);
 
   const createNewDesign = useCallback(
     async (title: string = "Untitled Design", width: number = 1080, height: number = 1080) => {
@@ -275,6 +281,7 @@ export function useDesignSync() {
     saveDesign,
     createNewDesign,
     autoSave,
+    flushSave,
     isSaving,
   };
 }

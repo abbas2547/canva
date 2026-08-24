@@ -53,6 +53,7 @@ import {
 
 import { useEditorStore } from "@/store/editorStore";
 import { useDesignSync } from "@/hooks/useDesignSync";
+import { exportDesignDataURL } from "@/lib/export-image";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
@@ -82,6 +83,19 @@ export default function EditorTopbar() {
   const zoom = useEditorStore((state) => state.zoom);
 
   const { saveDesign, createNewDesign, isSaving } = useDesignSync();
+
+  // Live persistence indicator driven by real store state
+  const [isDirtyNow, setIsDirtyNow] = useState(false);
+  useEffect(() => {
+    const id = setInterval(() => {
+      try {
+        setIsDirtyNow(useEditorStore.getState().isDirty());
+      } catch {
+        setIsDirtyNow(false);
+      }
+    }, 1200);
+    return () => clearInterval(id);
+  }, []);
 
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const fileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -130,7 +144,7 @@ export default function EditorTopbar() {
   const exportPNG = useCallback(() => {
     if (!canvas) { toast.error("Canvas is not ready yet."); return; }
     try {
-      const dataURL = canvas.toDataURL({ format: "png", multiplier: 2, quality: 1 });
+      const dataURL = exportDesignDataURL(canvas, { format: "png", multiplier: 2, quality: 1 });
       const link = document.createElement("a");
       link.href = dataURL;
       link.download = `${designName || "design"}.png`;
@@ -145,7 +159,7 @@ export default function EditorTopbar() {
   const exportJPG = useCallback(() => {
     if (!canvas) return;
     try {
-      const dataURL = canvas.toDataURL({ format: "jpeg", multiplier: 2, quality: 0.95 });
+      const dataURL = exportDesignDataURL(canvas, { format: "jpeg", multiplier: 2, quality: 0.95 });
       const link = document.createElement("a");
       link.href = dataURL;
       link.download = `${designName || "design"}.jpg`;
@@ -159,7 +173,7 @@ export default function EditorTopbar() {
   const exportPDF = useCallback(() => {
     if (!canvas) return;
     try {
-      const dataURL = canvas.toDataURL({ format: "png", multiplier: 2, quality: 1 });
+      const dataURL = exportDesignDataURL(canvas, { format: "png", multiplier: 2, quality: 1 });
       const link = document.createElement("a");
       link.href = dataURL;
       link.download = `${designName || "design"}.pdf`;
@@ -305,8 +319,8 @@ export default function EditorTopbar() {
             </AnimatePresence>
           </div>
 
-          {/* DESIGN NAME */}
-          <div className="ml-0.5 min-w-0">
+          {/* DESIGN NAME + SAVE STATUS */}
+          <div className="ml-0.5 min-w-0 flex items-center gap-2">
             {isEditingName ? (
               <input ref={nameInputRef} value={designName} onChange={(e) => { setDesignName(e.target.value); setSaved(false); }} onBlur={saveDesignName} onKeyDown={handleNameKeyDown} className="w-28 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-900 outline-none ring-2 ring-slate-200 focus:border-slate-400 lg:w-48 lg:text-sm" />
             ) : (
@@ -314,6 +328,19 @@ export default function EditorTopbar() {
                 {designName}
               </button>
             )}
+            <span
+              title={isSaving ? "Saving to cloud" : isDirtyNow ? "Changes pending" : "All changes saved"}
+              className={`hidden sm:inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                isSaving
+                  ? "bg-indigo-50 text-indigo-600"
+                  : isDirtyNow
+                    ? "bg-amber-50 text-amber-600"
+                    : "bg-emerald-50 text-emerald-600"
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${isSaving ? "bg-indigo-500 animate-pulse" : isDirtyNow ? "bg-amber-500" : "bg-emerald-500"}`} />
+              {isSaving ? "Saving…" : isDirtyNow ? "Pending" : "Saved"}
+            </span>
           </div>
         </div>
 
@@ -422,7 +449,7 @@ export default function EditorTopbar() {
             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="relative flex max-h-full max-w-full flex-col items-center bg-white rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <button type="button" onClick={() => setIsPreviewOpen(false)} className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-700 shadow-lg transition active:bg-slate-100 lg:right-4 lg:top-4 lg:h-10 lg:w-10"><X size={16} /></button>
               <div className="max-h-[70vh] max-w-[90vw] overflow-auto p-2 sm:p-4">
-                <img src={canvas.toDataURL({ format: "png", multiplier: 2 })} alt="Design preview" className="block max-h-[60vh] max-w-[85vw] object-contain" />
+                <img src={exportDesignDataURL(canvas, { format: "png", multiplier: 2 })} alt="Design preview" className="block max-h-[60vh] max-w-[85vw] object-contain" />
               </div>
               <div className="flex items-center justify-between px-3 py-3 border-t border-slate-100 lg:px-4 lg:py-4">
                 <span className="text-xs text-slate-600 lg:text-sm">{designName}</span>

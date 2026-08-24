@@ -185,19 +185,39 @@ function extForType(type: string): string {
 }
 
 /* WebGL texture upload and toDataURL fail when a canvas holds an image that
-   was loaded without CORS approval. Re-loads the element anonymously so
-   filters/exports work on images restored from older saved designs. */
+   was loaded without CORS approval. Re-loads the ORIGINAL source anonymously
+   so filters/exports work even on images restored from older saved designs.
+   After any filter runs, getElement() may be a <canvas> and getSrc() may be a
+   data URL — neither tells us whether the true source is clean, so we always
+   inspect _originalElement.src instead. */
 export async function ensureUntaintedImage(
-  obj: fabric.FabricImage
+  obj: fabric.FabricImage,
+  force = false
 ): Promise<boolean> {
-  const el = obj.getElement();
-  if (!(el instanceof HTMLImageElement)) return true;
-  if (el.crossOrigin === "anonymous") return true;
+  const internal = obj as unknown as {
+    _originalElement?: HTMLImageElement | HTMLCanvasElement;
+  };
+  const originalEl = internal._originalElement;
 
-  const src = obj.getSrc?.() || el.src;
-  if (!src || src.startsWith("data:") || src.startsWith("blob:")) {
-    return true;
+  let origSrc = "";
+  if (originalEl instanceof HTMLImageElement) {
+    origSrc = originalEl.src;
+  } else if (typeof obj.getSrc === "function") {
+    try {
+      origSrc = obj.getSrc(false) || "";
+    } catch {
+      origSrc = "";
+    }
   }
+
+  // Local sources can never taint the canvas
+  if (!origSrc || !/^https?:/i.test(origSrc)) return true;
+
+  const alreadyClean =
+    originalEl instanceof HTMLImageElement &&
+    originalEl.crossOrigin === "anonymous";
+
+  if (!force && alreadyClean) return true;
 
   try {
     const fresh = new Image();
@@ -205,8 +225,9 @@ export async function ensureUntaintedImage(
     await new Promise<void>((resolve, reject) => {
       fresh.onload = () => resolve();
       fresh.onerror = () => reject(new Error("cors-load-failed"));
-      fresh.src = src;
+      fresh.src = origSrc;
     });
+    // setElement swaps _originalElement AND evicts cached WebGL textures
     obj.setElement(fresh);
     obj.dirty = true;
     return true;

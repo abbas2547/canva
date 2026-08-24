@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 
 import { useEditorStore } from "@/store/editorStore";
+import { exportDesignDataURL } from "@/lib/export-image";
 import { useEffect, useCallback, useState } from "react";
 
 import EditorSidebar from "./EditorSidebar";
@@ -353,7 +354,7 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
   const showAIChat = useEditorStore((state) => state.showAIChat);
   const setShowAIChat = useEditorStore((state) => state.setShowAIChat);
   const canvas = useEditorStore((state) => state.canvas);
-  const { autoSave, loadDesign, saveDesign } = useDesignSync();
+  const { autoSave, loadDesign, saveDesign, flushSave } = useDesignSync();
   const [isShareOpen, setIsShareOpen] = useState(false);
   const designId = useEditorStore((state) => state.designId);
 
@@ -378,6 +379,7 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
     canvas.on("object:modified", handleObjectModified);
     canvas.on("object:added", handleObjectModified);
     canvas.on("object:removed", handleObjectModified);
+    canvas.on("text:changed", handleObjectModified);
 
     // Allow auto-save after a short delay to let initial load complete
     const initTimer = setTimeout(() => {
@@ -389,22 +391,53 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
       canvas.off("object:modified", handleObjectModified);
       canvas.off("object:added", handleObjectModified);
       canvas.off("object:removed", handleObjectModified);
+      canvas.off("text:changed", handleObjectModified);
     };
   }, [canvas, autoSave]);
 
+  // Safety net: if anything is still dirty, persist it within 10s no matter what
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const store = useEditorStore.getState();
+      if (store.designId && store.canvas && store.isDirty()) {
+        autoSave();
+      }
+    }, 10_000);
+    return () => clearInterval(interval);
+  }, [autoSave]);
+
+  // Panels (filters, adjustments, background, crop…) all funnel through
+  // saveHistory() — use it as a catch-all autosave trigger
+  const historyIndex = useEditorStore((state) => state.historyIndex);
+  useEffect(() => {
+    if (!useEditorStore.getState().canvas || !useEditorStore.getState().designId) return;
+    autoSave();
+  }, [historyIndex, autoSave]);
+
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
+      void flushSave();
       const store = useEditorStore.getState();
       if (store.isDirty()) { e.preventDefault(); }
     };
     window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
+
+    // Save immediately when leaving the editor (dashboard/home navigation)
+    // or when the tab goes to the background
+    const onHidden = () => { if (document.visibilityState === "hidden") void flushSave(); };
+    document.addEventListener("visibilitychange", onHidden);
+
+    return () => {
+      window.removeEventListener("beforeunload", handler);
+      document.removeEventListener("visibilitychange", onHidden);
+      void flushSave();
+    };
+  }, [flushSave]);
 
   const handleMobileExport = useCallback(() => {
     if (!canvas) return;
     try {
-      const dataURL = canvas.toDataURL({ format: "png", multiplier: 2, quality: 1 });
+      const dataURL = exportDesignDataURL(canvas, { format: "png", multiplier: 2, quality: 1 });
       const link = document.createElement("a");
       link.href = dataURL;
       link.download = "design.png";

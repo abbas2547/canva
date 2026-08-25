@@ -17,6 +17,22 @@ import {
   ShieldCheck
 } from "lucide-react";
 
+function getSignupErrorMessage(error: unknown): string {
+  const code = typeof error === "object" && error !== null && "code" in error
+    ? String((error as { code?: unknown }).code)
+    : "";
+  switch (code) {
+    case "auth/email-already-in-use":
+      return "An account with this email already exists. Try signing in instead.";
+    case "auth/invalid-email":
+      return "Enter a valid email address.";
+    case "auth/weak-password":
+      return "Choose a stronger password with at least 6 characters.";
+    default:
+      return "We couldn't create your account. Please try again.";
+  }
+}
+
 export default function SignupPage() {
   const router = useRouter();
   const { user, loading: authLoading, signUpWithEmail } = useAuth();
@@ -60,12 +76,7 @@ export default function SignupPage() {
       router.push("/dashboard");
     } catch (error) {
       console.error("Signup Error:", error);
-      const message = (error as Error).message || "Failed to create account";
-      if (message.includes("already")) {
-        toast.error("An account with this email already exists. Please login instead.");
-      } else {
-        toast.error(message);
-      }
+      toast.error(getSignupErrorMessage(error));
     } finally {
       setLoading(false);
     }

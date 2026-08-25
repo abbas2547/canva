@@ -88,7 +88,7 @@ export function useDesignSync() {
       try {
         isLoadingRef.current = true;
         setIsSaving(true);
-        const design = await getDesignById(id);
+        const design = await getDesignById(id, user.uid);
 
         if (design) {
           setDesignId(design.id);
@@ -174,7 +174,7 @@ export function useDesignSync() {
             width: latestCanvasWidth,
             height: latestCanvasHeight,
             thumbnail,
-          });
+          }, user.uid);
 
           useEditorStore.getState().markSaved();
           console.debug("[autosave] saved", latestDesignId);

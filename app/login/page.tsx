@@ -5,7 +5,25 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { Sparkles, Mail, Lock, Loader2 } from "lucide-react";
+import { Sparkles, Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
+
+function getAuthErrorMessage(error: unknown): string {
+  const code = typeof error === "object" && error !== null && "code" in error
+    ? String((error as { code?: unknown }).code)
+    : "";
+  switch (code) {
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "Those sign-in details are not correct.";
+    case "auth/too-many-requests":
+      return "Too many attempts. Please wait a moment and try again.";
+    case "auth/invalid-email":
+      return "Enter a valid email address.";
+    default:
+      return "Sign in failed. Please try again.";
+  }
+}
 
 function LoginForm() {
   const router = useRouter();
@@ -14,6 +32,7 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const redirectTo = searchParams.get("from") || "/dashboard";
 
@@ -50,9 +69,7 @@ function LoginForm() {
       router.push(redirectTo);
     } catch (err: unknown) {
       console.error(err);
-      toast.error(
-        err instanceof Error ? err.message : "Sign in failed"
-      );
+      toast.error(getAuthErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -158,12 +175,21 @@ function LoginForm() {
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
+                aria-label="Password"
+                className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3 pl-10 pr-12 text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
               />
+              <button
+                type="button"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                onClick={() => setShowPassword((value) => !value)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 

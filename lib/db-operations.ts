@@ -33,11 +33,17 @@ export async function getUserDesigns(userId: string): Promise<DesignDocument[]> 
   }
 }
 
-export async function getDesignById(designId: string): Promise<DesignDocument | null> {
+export async function getDesignById(
+  designId: string,
+  userId?: string
+): Promise<DesignDocument | null> {
+  if (!designId) return null;
   try {
     const docSnap = await getDoc(doc(db, "designs", designId));
     if (!docSnap.exists()) return null;
-    return { id: docSnap.id, ...docSnap.data() } as DesignDocument;
+    const design = { id: docSnap.id, ...docSnap.data() } as DesignDocument;
+    if (userId && design.userId !== userId) return null;
+    return design;
   } catch (error) {
     console.error("Error fetching design:", error);
     return null;
@@ -87,10 +93,20 @@ export async function createDesign(
   }
 }
 
-export async function updateDesign(designId: string, updates: Partial<DesignDocument>): Promise<void> {
+export async function updateDesign(
+  designId: string,
+  updates: Partial<DesignDocument>,
+  userId?: string
+): Promise<void> {
   if (!designId) throw new Error("Design ID is required");
   try {
     const docRef = doc(db, "designs", designId);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) throw new Error("Design not found");
+    const existing = docSnap.data() as Record<string, unknown>;
+    if (userId && existing.userId !== userId) {
+      throw new Error("You do not have permission to update this design");
+    }
     const now = new Date().toISOString();
     const updateData: Record<string, unknown> = { updatedAt: now };
 
@@ -103,34 +119,14 @@ export async function updateDesign(designId: string, updates: Partial<DesignDocu
     if (updates.description !== undefined) updateData.description = updates.description;
     if (updates.tags !== undefined) updateData.tags = updates.tags;
     if (updates.deletedAt !== undefined) updateData.deletedAt = updates.deletedAt;
+    if (updates.downloads !== undefined) updateData.downloads = updates.downloads;
+    if (updates.views !== undefined) updateData.views = updates.views;
+    if (updates.likes !== undefined) updateData.likes = updates.likes;
 
     if (updates.pages !== undefined) {
-      // Read only scalar fields from existing — never propagate array fields that may be corrupted
-      const docSnap = await getDoc(docRef);
-      const existing = docSnap.exists() ? (docSnap.data() as Record<string, unknown>) : {};
-      const fullData: Record<string, unknown> = {
-        userId: existing.userId ?? "",
-        title: updateData.title ?? existing.title ?? "",
-        description: (typeof existing.description === "string" ? existing.description : "") ?? (typeof updateData.description === "string" ? updateData.description : ""),
-        thumbnail: (typeof existing.thumbnail === "string" ? existing.thumbnail : "") ?? (typeof updateData.thumbnail === "string" ? updateData.thumbnail : ""),
-        pages: updates.pages,
-        activePageId: (typeof existing.activePageId === "string" ? existing.activePageId : "page-1") ?? updateData.activePageId,
-        width: (typeof existing.width === "number" ? existing.width : 1080) ?? updateData.width,
-        height: (typeof existing.height === "number" ? existing.height : 1080) ?? updateData.height,
-        templateId: (typeof existing.templateId === "string" || existing.templateId === null ? existing.templateId : null),
-        isPublic: (typeof existing.isPublic === "boolean" ? existing.isPublic : false) ?? updateData.isPublic,
-        downloads: (typeof existing.downloads === "number" ? existing.downloads : 0),
-        views: (typeof existing.views === "number" ? existing.views : 0),
-        likes: (typeof existing.likes === "number" ? existing.likes : 0),
-        tags: Array.isArray(updateData.tags) ? updateData.tags : [],
-        createdAt: (typeof existing.createdAt === "string" ? existing.createdAt : now),
-        updatedAt: now,
-        deletedAt: existing.deletedAt ?? null,
-      };
-      await setDoc(docRef, fullData);
-    } else {
-      await updateDoc(docRef, updateData);
+      updateData.pages = updates.pages;
     }
+    await updateDoc(docRef, updateData);
   } catch (error) {
     console.error("Error updating design:", error);
     throw error;
@@ -153,7 +149,7 @@ export async function deleteDesign(designId: string): Promise<void> {
 export async function duplicateDesign(designId: string, userId: string): Promise<DesignDocument> {
   if (!designId || !userId) throw new Error("Missing parameters");
   try {
-    const original = await getDesignById(designId);
+    const original = await getDesignById(designId, userId);
     if (!original) throw new Error("Design not found");
     const newId = `design_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const now = new Date().toISOString();

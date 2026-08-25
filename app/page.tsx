@@ -57,17 +57,17 @@ export default function LandingPage() {
 
         {/* Heading */}
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight mb-8 leading-tight">
-          Design Anything
+          Design anything.
           <br />
           <span className="bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-            Beautifully
+            Create faster.
           </span>
         </h1>
 
         {/* Description */}
         <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
-          Create stunning graphics, social posts, presentations, thumbnails, and more
-          using your own AI-powered design studio.
+          Your all-in-one creative workspace for professional designs, image editing,
+          templates, layers, exports, and AI-assisted creative work.
         </p>
 
         {/* Dynamic Main Action Buttons */}
@@ -89,10 +89,10 @@ export default function LandingPage() {
           )}
 
           <Link
-            href="/editor"
+            href={user ? "/dashboard" : "/signup"}
             className="px-8 py-4 bg-slate-800 text-white font-bold rounded-xl border border-slate-700 hover:bg-slate-700 transition-all"
           >
-            Explore Editor
+            Explore Features
           </Link>
         </div>
 
@@ -101,12 +101,27 @@ export default function LandingPage() {
           <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl blur opacity-25"></div>
           <div className="relative bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
             <img
-              src="https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&q=80&w=2000"
-              alt="Editor Preview"
-              className="w-full object-cover opacity-80"
+              src="/canva.png"
+              alt="Mini Canva editor preview"
+              loading="lazy"
+              className="w-full object-contain opacity-90"
             />
           </div>
         </div>
+      </section>
+
+      <section id="features" className="relative z-10 mx-auto grid max-w-7xl gap-4 px-6 pb-20 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ["Canvas editor", "Build polished designs with text, images, shapes, and backgrounds."],
+          ["Image tools", "Upload, resize, rotate, crop, filter, and arrange your images."],
+          ["Layers and history", "Keep control with layer ordering plus undo and redo."],
+          ["Cloud exports", "Save designs to your account and export finished work as PNG."],
+        ].map(([title, description]) => (
+          <article key={title} className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 transition hover:-translate-y-1 hover:border-purple-400/40">
+            <h2 className="text-lg font-bold">{title}</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>
+          </article>
+        ))}
       </section>
 
       {/* DEV & PROJECT NAVIGATION FOOTER */}

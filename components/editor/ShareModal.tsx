@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { getDesignById, updateDesign } from "@/lib/db-operations";
 import toast from "react-hot-toast";
+import { useAuth } from "@/context/AuthContext";
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export default function ShareModal({ isOpen, onClose, designId }: ShareModalProp
   const [loading, setLoading] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [copied, setCopied] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!isOpen || !designId) return;
@@ -33,7 +35,7 @@ export default function ShareModal({ isOpen, onClose, designId }: ShareModalProp
     async function fetchDesign() {
       setLoading(true);
       try {
-        const design = await getDesignById(designId!);
+        const design = await getDesignById(designId!, user?.uid);
         if (!cancelled && design) setIsPublic(design.isPublic);
       } catch {
         if (!cancelled) toast.error("Failed to load share settings");
@@ -43,13 +45,13 @@ export default function ShareModal({ isOpen, onClose, designId }: ShareModalProp
     }
     fetchDesign();
     return () => { cancelled = true; };
-  }, [isOpen, designId]);
+  }, [isOpen, designId, user?.uid]);
 
   const togglePublic = async () => {
     if (!designId) return;
     setToggling(true);
     try {
-      await updateDesign(designId, { isPublic: !isPublic });
+      await updateDesign(designId, { isPublic: !isPublic }, user?.uid);
       setIsPublic(!isPublic);
       toast.success(isPublic ? "Design is now private" : "Design is now public");
     } catch {

@@ -22,6 +22,7 @@ import {
   MessageCircle,
   Zap,
 } from "lucide-react";
+import * as fabric from "fabric";
 
 import {
   useEffect,
@@ -141,6 +142,55 @@ export default function AIPanel() {
     );
   };
 
+  const selectedObject = () => canvas?.getActiveObject() ?? null;
+
+  const applyImageFilter = (
+    filter: "enhance" | "brighten" | "darken" | "grayscale" | "blur" | "sharpen"
+  ): string => {
+    const object = selectedObject();
+    if (!canvas) return "The canvas is not ready yet.";
+    if (!(object instanceof fabric.FabricImage)) {
+      return "Select an image first so I can edit it.";
+    }
+
+    const filters = fabric.filters;
+    const imageFilters: fabric.filters.BaseFilter<string>[] = [];
+    if (filter === "grayscale") imageFilters.push(new filters.Grayscale());
+    if (filter === "brighten") imageFilters.push(new filters.Brightness({ brightness: 0.15 }));
+    if (filter === "darken") imageFilters.push(new filters.Brightness({ brightness: -0.15 }));
+    if (filter === "blur") imageFilters.push(new filters.Blur({ blur: 0.12 }));
+    if (filter === "sharpen") imageFilters.push(new filters.Convolute({ matrix: [0, -1, 0, -1, 5, -1, 0, -1, 0] }));
+    if (filter === "enhance") {
+      imageFilters.push(
+        new filters.Brightness({ brightness: 0.06 }),
+        new filters.Contrast({ contrast: 0.2 }),
+        new filters.Saturation({ saturation: 0.18 })
+      );
+    }
+
+    object.filters = imageFilters;
+    object.applyFilters();
+    canvas.requestRenderAll();
+    saveHistory();
+    refreshLayers();
+    return `I've applied a ${filter} edit to the selected image.`;
+  };
+
+  const applySelectedObjectChange = (
+    change: (object: fabric.FabricObject) => void,
+    message: string
+  ): string => {
+    const object = selectedObject();
+    if (!canvas) return "The canvas is not ready yet.";
+    if (!object) return "Select an element first so I can edit it.";
+    change(object);
+    object.setCoords();
+    canvas.requestRenderAll();
+    saveHistory();
+    refreshLayers();
+    return message;
+  };
+
   // ============================================================
   // ADD MESSAGE
   // ============================================================
@@ -170,6 +220,68 @@ export default function AIPanel() {
   ): string => {
     const text =
       command.toLowerCase().trim();
+
+    if (text.includes("improve") && (text.includes("image") || text.includes("photo"))) {
+      return applyImageFilter("enhance");
+    }
+    if (text.includes("brighten") || text.includes("lighten")) {
+      return applyImageFilter("brighten");
+    }
+    if (text.includes("darken")) {
+      return applyImageFilter("darken");
+    }
+    if (text.includes("grayscale") || text.includes("black and white")) {
+      return applyImageFilter("grayscale");
+    }
+    if (text.includes("blur")) {
+      return applyImageFilter("blur");
+    }
+    if (text.includes("sharpen")) {
+      return applyImageFilter("sharpen");
+    }
+
+    const hexColor = command.match(/#[0-9a-f]{6}\b/i)?.[0];
+    const namedColors: Record<string, string> = {
+      red: "#ef4444",
+      blue: "#3b82f6",
+      green: "#22c55e",
+      yellow: "#eab308",
+      purple: "#a855f7",
+      pink: "#ec4899",
+      orange: "#f97316",
+      white: "#ffffff",
+      black: "#000000",
+    };
+    const namedColor = Object.keys(namedColors).find((color) => text.includes(color));
+    if ((text.includes("change") || text.includes("set") || text.includes("make")) &&
+      (text.includes("color") || text.includes("colour")) && (hexColor || namedColor)) {
+      const color = hexColor || namedColors[namedColor as string];
+      return applySelectedObjectChange(
+        (object) => object.set("fill", color),
+        `I've changed the selected element to ${color}.`
+      );
+    }
+
+    if (text.includes("rotate")) {
+      const amount = Number(text.match(/(-?\d+)\s*(?:degrees|degree|°)?/)?.[1] || 90);
+      return applySelectedObjectChange(
+        (object) => object.set("angle", (object.angle || 0) + amount),
+        `I've rotated the selected element by ${amount} degrees.`
+      );
+    }
+
+    if (text.includes("bring to front") || text.includes("front")) {
+      return applySelectedObjectChange(
+        (object) => canvas?.bringObjectToFront(object),
+        "I've brought the selected element to the front."
+      );
+    }
+    if (text.includes("send to back") || text.includes("back")) {
+      return applySelectedObjectChange(
+        (object) => canvas?.sendObjectToBack(object),
+        "I've sent the selected element to the back."
+      );
+    }
 
     // ----------------------------------------------------------
     // ADD TEXT
@@ -582,7 +694,7 @@ export default function AIPanel() {
   // SEND MESSAGE
   // ============================================================
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     const trimmed =
       message.trim();
 
@@ -598,19 +710,40 @@ export default function AIPanel() {
     setMessage("");
 
     setIsTyping(true);
+    try {
+      const response = executeAICommand(trimmed);
+      const isAdviceRequest =
+        response.startsWith("I understand your request") ||
+        response.startsWith("For a more professional") ||
+        response.startsWith("Try using one primary");
 
-    // Small delay makes it feel like an assistant.
-    setTimeout(() => {
-      const response =
-        executeAICommand(trimmed);
+      if (!isAdviceRequest) {
+        addMessage("assistant", response);
+        return;
+      }
 
+      const selected = selectedObject();
+      const apiResponse = await fetch("/api/ai-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: trimmed,
+          context: JSON.stringify({
+            canvas: canvas ? { width: canvas.getWidth(), height: canvas.getHeight(), objectCount: canvas.getObjects().length } : null,
+            selectedObject: selected ? { type: selected.type, angle: selected.angle, fill: selected.get("fill") } : null,
+            editorCapabilities: ["add elements", "image filters", "colors", "layers", "undo and redo", "export"],
+          }),
+        }),
+      });
+      const data = (await apiResponse.json().catch(() => ({}))) as { reply?: string; error?: string };
+      if (!apiResponse.ok) throw new Error(data.error || "AI service unavailable");
+      addMessage("assistant", data.reply || "I couldn't generate advice for that request.");
+    } catch (error) {
+      console.error("Editor AI request failed:", error);
+      addMessage("assistant", "I couldn't reach the AI service. I can still edit the canvas with commands like “improve this image”, “brighten”, “grayscale”, “change color to #7c3aed”, “rotate 90 degrees”, or “bring to front”.");
+    } finally {
       setIsTyping(false);
-
-      addMessage(
-        "assistant",
-        response
-      );
-    }, 500);
+    }
   };
 
   // ============================================================

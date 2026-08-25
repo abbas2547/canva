@@ -1,114 +1,62 @@
 import { NextResponse } from "next/server";
 
-// =====================================================
-// AI CHAT API ENDPOINT - DESIGN ASSISTANT
-// =====================================================
+const SYSTEM_PROMPT = `You are Mini Canva AI, a professional graphic design assistant.
+Give practical, concise advice about layouts, typography, colors, branding, image editing, and social media design.
+The editor can add text and shapes, edit images with filters, manage layers, save designs, and export PNG, JPG, or PDF.
+Do not claim unsupported features. If the user asks you to directly edit the canvas, explain that the editor command controls should be used.`;
 
-const SYSTEM_PROMPT = `You are an expert AI creative designer inside a Canva-style SaaS application.
-
-Your responsibilities:
-- Help users edit photos and designs
-- Suggest modern color palettes and color combinations
-- Suggest thumbnail ideas and design concepts
-- Suggest typography combinations and font pairings
-- Suggest branding and visual identity ideas
-- Help with Instagram post design best practices
-- Help with YouTube thumbnail optimization
-- Give modern UI/UX design advice
-- Analyze current designs and suggest improvements
-- Provide design trends and suggestions
-- Keep responses practical, actionable, and helpful
-- Respond like a professional graphic designer with 10+ years experience
-- Use emojis sparingly and professionally
-- Provide specific recommendations with reasoning`;
+interface OpenRouterResponse {
+  model?: string;
+  choices?: Array<{ message?: { content?: string } }>;
+  usage?: unknown;
+}
 
 export async function POST(req: Request) {
   try {
-    const { message, context = "general" } = await req.json();
-
-    if (!message || typeof message !== "string") {
-      return NextResponse.json(
-        { error: "Invalid message" },
-        { status: 400 }
-      );
+    const body = await req.json() as { message?: unknown; context?: unknown };
+    const message = typeof body.message === "string" ? body.message.trim() : "";
+    if (!message) {
+      return NextResponse.json({ error: "A message is required." }, { status: 400 });
     }
 
-    if (!process.env.OPENROUTER_API_KEY) {
-      console.error("Missing OPENROUTER_API_KEY");
-      return NextResponse.json(
-        { error: "AI service not configured" },
-        { status: 500 }
-      );
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: "AI service is not configured." }, { status: 503 });
     }
 
-    const response = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "HTTP-Referer": process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
-          "X-Title": "Mini Canva AI Design Assistant",
-        },
-        body: JSON.stringify({
-          model: "openai/gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: SYSTEM_PROMPT,
-            },
-            {
-              role: "user",
-              content: `Context: ${context}\n\nUser message: ${message}`,
-            },
-          ],
-          temperature: 0.7,
-          max_tokens: 500,
-          top_p: 0.9,
-        }),
-      }
-    );
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
+        "X-Title": "Mini Canva AI Design Assistant",
+      },
+      body: JSON.stringify({
+        model: process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: `Editor context: ${String(body.context || "general")}\n\nUser request: ${message}` },
+        ],
+        temperature: 0.6,
+        max_tokens: 700,
+      }),
+    });
 
     if (!response.ok) {
-      const errorData = await response.text();
-      console.error("OpenRouter API error:", errorData);
-
-      return NextResponse.json(
-        { error: "Failed to get AI response. Please try again." },
-        { status: response.status }
-      );
+      console.error("OpenRouter API error:", response.status, await response.text());
+      return NextResponse.json({ error: "The AI service could not answer right now." }, { status: 502 });
     }
 
-    const text = await response.text();
-    let data: any = {};
-
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch (parseError) {
-      console.error("OpenRouter returned invalid JSON:", parseError);
-      return NextResponse.json(
-        { error: "AI service returned an invalid response." },
-        { status: 502 }
-      );
+    const data = await response.json() as OpenRouterResponse;
+    const reply = data.choices?.[0]?.message?.content?.trim();
+    if (!reply) {
+      return NextResponse.json({ error: "The AI returned an empty response." }, { status: 502 });
     }
 
-    if (!data.choices?.[0]?.message?.content) {
-      throw new Error("Invalid API response format");
-    }
-
-    const aiResponse = data.choices[0].message.content;
-
-    return NextResponse.json({
-      reply: aiResponse,
-      model: data.model,
-      usage: data.usage,
-    });
+    return NextResponse.json({ reply, model: data.model, usage: data.usage });
   } catch (error) {
-    console.error("AI Chat API Error:", error);
-    return NextResponse.json(
-      { reply: "Something went wrong with AI assistant." },
-      { status: 500 }
-    );
+    console.error("AI Chat API error:", error);
+    return NextResponse.json({ error: "We could not connect to the AI service." }, { status: 500 });
   }
 }

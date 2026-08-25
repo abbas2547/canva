@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useEditorStore } from "@/store/editorStore";
 import { getDesignById, createDesign, updateDesign } from "@/lib/db-operations";
@@ -46,13 +46,19 @@ export function useDesignSync() {
   const setProjectName = useEditorStore((state) => state.setProjectName);
   const isSaving = useEditorStore((state) => state.isSaving);
   const setIsSaving = useEditorStore((state) => state.setIsSaving);
+  const resetHistory = useEditorStore((state) => state.resetHistory);
 
   const isLoadingRef = useRef(false);
   const lastFailToastRef = useRef(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadDesign = useCallback(
     async (id: string) => {
       if (!user) return;
+
+      setIsLoading(true);
+      setLoadError(null);
 
       let attempts = 0;
       const maxAttempts = 50;
@@ -78,12 +84,18 @@ export function useDesignSync() {
       const canvasReady = await waitForCanvas();
       if (!canvasReady) {
         console.error("Canvas did not initialize in time");
+        setIsLoading(false);
+        setLoadError("Canvas did not initialize. Please retry.");
         toast.error("Failed to load design: canvas not ready");
         return;
       }
 
       const currentCanvas = useEditorStore.getState().canvas;
-      if (!currentCanvas) return;
+      if (!currentCanvas) {
+        setIsLoading(false);
+        setLoadError("Canvas did not initialize. Please retry.");
+        return;
+      }
 
       try {
         isLoadingRef.current = true;
@@ -96,38 +108,44 @@ export function useDesignSync() {
 
           const pages = design.pages || [];
           const page = pages.find((p) => p.id === design.activePageId) || pages[0];
-          if (page) {
-            const json = JSON.parse(page.json);
-            await currentCanvas.loadFromJSON(json);
+          const json = page?.json
+            ? JSON.parse(page.json)
+            : { objects: [], backgroundColor: "#ffffff" };
+          await currentCanvas.loadFromJSON(json);
+          currentCanvas.discardActiveObject();
+          resetHistory();
 
-            // Re-load any images that were saved without CORS approval so
-            // filters/exports don't fail with tainted-canvas errors
-            const imageObjects = currentCanvas
-              .getObjects()
-              .filter((o): o is import("fabric").FabricImage => o instanceof fabric.FabricImage);
-            await Promise.all(imageObjects.map((img) => ensureUntaintedImage(img)));
+          // Re-load any images that were saved without CORS approval so
+          // filters/exports don't fail with tainted-canvas errors
+          const imageObjects = currentCanvas
+            .getObjects()
+            .filter((o): o is import("fabric").FabricImage => o instanceof fabric.FabricImage);
+          await Promise.all(imageObjects.map((img) => ensureUntaintedImage(img)));
 
-            if (design.width && design.height) {
-              currentCanvas.setDimensions({ width: design.width, height: design.height });
-              useEditorStore.getState().setCanvasSize(design.width, design.height);
-            }
-
-            currentCanvas.requestRenderAll();
-
-            useEditorStore.getState().refreshLayers();
-            useEditorStore.getState().saveHistory();
-            useEditorStore.getState().markSaved();
+          if (design.width && design.height) {
+            currentCanvas.setDimensions({ width: design.width, height: design.height });
+            useEditorStore.getState().setCanvasSize(design.width, design.height);
           }
+
+          currentCanvas.requestRenderAll();
+
+          useEditorStore.getState().refreshLayers();
+          useEditorStore.getState().saveHistory();
+          useEditorStore.getState().markSaved();
+        } else {
+          throw new Error("Design not found");
         }
       } catch (error) {
         console.error("Failed to load design:", error);
+        setLoadError("Failed to load design. Please try again.");
         toast.error("Failed to load design");
       } finally {
         isLoadingRef.current = false;
+        setIsLoading(false);
         setIsSaving(false);
       }
     },
-    [user, setDesignId, setProjectName, setIsSaving]
+    [user, resetHistory, setDesignId, setProjectName, setIsSaving]
   );
 
   const buildSaver = useCallback(
@@ -242,6 +260,7 @@ export function useDesignSync() {
       }
 
       try {
+        isLoadingRef.current = true;
         setIsSaving(true);
         const design = await createDesign(user.uid, title, width, height);
 
@@ -255,6 +274,7 @@ export function useDesignSync() {
         currentCanvas.requestRenderAll();
 
         useEditorStore.getState().setCanvasSize(width, height);
+        resetHistory();
         useEditorStore.getState().refreshLayers();
         useEditorStore.getState().saveHistory();
         useEditorStore.getState().markSaved();
@@ -266,10 +286,11 @@ export function useDesignSync() {
         toast.error("Failed to create design");
         return null;
       } finally {
+        isLoadingRef.current = false;
         setIsSaving(false);
       }
     },
-    [user, setDesignId, setProjectName, setIsSaving]
+    [user, resetHistory, setDesignId, setProjectName, setIsSaving]
   );
 
   const autoSave = useCallback(() => {
@@ -283,5 +304,7 @@ export function useDesignSync() {
     autoSave,
     flushSave,
     isSaving,
+    isLoading,
+    loadError,
   };
 }

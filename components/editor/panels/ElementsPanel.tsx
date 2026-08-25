@@ -16,6 +16,8 @@ export default function ElementsPanel() {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const canvas = useEditorStore((s) => s.canvas);
+  const saveHistory = useEditorStore((s) => s.saveHistory);
+  const refreshLayers = useEditorStore((s) => s.refreshLayers);
 
   const filteredCategories = selectedCategory
     ? elementCategories.filter((c) => c.id === selectedCategory)
@@ -128,6 +130,8 @@ export default function ElementsPanel() {
       canvas.add(fabricObj);
       canvas.setActiveObject(fabricObj);
       canvas.requestRenderAll();
+      refreshLayers();
+      saveHistory();
     }
   };
 

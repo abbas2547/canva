@@ -354,7 +354,7 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
   const showAIChat = useEditorStore((state) => state.showAIChat);
   const setShowAIChat = useEditorStore((state) => state.setShowAIChat);
   const canvas = useEditorStore((state) => state.canvas);
-  const { autoSave, loadDesign, saveDesign, flushSave } = useDesignSync();
+  const { autoSave, loadDesign, saveDesign, flushSave, isLoading, loadError } = useDesignSync();
   const [isShareOpen, setIsShareOpen] = useState(false);
   const designId = useEditorStore((state) => state.designId);
 
@@ -368,29 +368,15 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
   useEffect(() => {
     if (!canvas) return;
 
-    let isInitializing = true;
-
     const handleObjectModified = () => {
-      if (!isInitializing) {
-        autoSave();
-      }
+      autoSave();
     };
 
     canvas.on("object:modified", handleObjectModified);
-    canvas.on("object:added", handleObjectModified);
-    canvas.on("object:removed", handleObjectModified);
     canvas.on("text:changed", handleObjectModified);
 
-    // Allow auto-save after a short delay to let initial load complete
-    const initTimer = setTimeout(() => {
-      isInitializing = false;
-    }, 2000);
-
     return () => {
-      clearTimeout(initTimer);
       canvas.off("object:modified", handleObjectModified);
-      canvas.off("object:added", handleObjectModified);
-      canvas.off("object:removed", handleObjectModified);
       canvas.off("text:changed", handleObjectModified);
     };
   }, [canvas, autoSave]);
@@ -450,12 +436,35 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
   }, [canvas]);
 
   return (
-    <div className="flex h-dvh w-full flex-col overflow-hidden bg-white">
+    <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-white">
 
       {/* TOPBAR */}
       <div className="shrink-0">
         <EditorTopbar />
       </div>
+
+      {isLoading && (
+        <div className="absolute inset-0 z-[180] flex items-center justify-center bg-white/75 backdrop-blur-[1px]">
+          <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-lg">
+            Loading design…
+          </div>
+        </div>
+      )}
+
+      {loadError && !isLoading && (
+        <div className="absolute left-1/2 top-16 z-[180] flex -translate-x-1/2 items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 shadow-lg">
+          <span>{loadError}</span>
+          {initialDesignId && (
+            <button
+              type="button"
+              onClick={() => loadDesign(initialDesignId)}
+              className="font-semibold underline underline-offset-2"
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      )}
 
       {/* EDITOR BODY */}
       <div className="flex min-h-0 flex-1 overflow-hidden">

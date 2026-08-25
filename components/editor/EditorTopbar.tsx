@@ -57,6 +57,7 @@ import { exportDesignDataURL } from "@/lib/export-image";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
+import { jsPDF } from "jspdf";
 import KeyboardShortcutsModal from "./KeyboardShortcutsModal";
 import ShareModal from "./ShareModal";
 
@@ -65,6 +66,7 @@ export default function EditorTopbar() {
   const [designName, setDesignName] = useState("Untitled Design");
   const [isEditingName, setIsEditingName] = useState(false);
   const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
@@ -99,7 +101,9 @@ export default function EditorTopbar() {
 
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const fileMenuRef = useRef<HTMLDivElement | null>(null);
+  const exportMenuRef = useRef<HTMLDivElement | null>(null);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const undo = useEditorStore((state) => state.undo);
   const redo = useEditorStore((state) => state.redo);
@@ -173,13 +177,21 @@ export default function EditorTopbar() {
   const exportPDF = useCallback(() => {
     if (!canvas) return;
     try {
-      const dataURL = exportDesignDataURL(canvas, { format: "png", multiplier: 2, quality: 1 });
-      const link = document.createElement("a");
-      link.href = dataURL;
-      link.download = `${designName || "design"}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const width = canvas.getWidth();
+      const height = canvas.getHeight();
+      const dataURL = canvas.toDataURL({
+        format: "png",
+        multiplier: 2,
+        quality: 1,
+        enableRetinaScaling: false,
+      });
+      const pdf = new jsPDF({
+        orientation: width >= height ? "landscape" : "portrait",
+        unit: "px",
+        format: [width, height],
+      });
+      pdf.addImage(dataURL, "PNG", 0, 0, width, height);
+      pdf.save(`${designName || "design"}.pdf`);
       toast.success("Exported as PDF");
     } catch (error) { console.error("PDF export failed:", error); toast.error("Export failed"); }
   }, [canvas, designName]);
@@ -188,8 +200,8 @@ export default function EditorTopbar() {
 
   const handleFitToScreen = () => {
     if (!canvas) return;
-    const container = canvas.wrapperEl?.parentElement;
-    if (container) {
+    const container = canvas.wrapperEl?.closest(".overflow-auto");
+    if (container instanceof HTMLElement) {
       const containerWidth = container.clientWidth - 40;
       const containerHeight = container.clientHeight - 40;
       const scaleX = containerWidth / canvasWidth;
@@ -203,6 +215,7 @@ export default function EditorTopbar() {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       if (fileMenuRef.current && !fileMenuRef.current.contains(target)) setIsFileMenuOpen(false);
+      if (exportMenuRef.current && !exportMenuRef.current.contains(target)) setIsExportMenuOpen(false);
       if (moreMenuRef.current && !moreMenuRef.current.contains(target)) setIsMoreMenuOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -212,9 +225,43 @@ export default function EditorTopbar() {
   const handleNewDesign = async () => {
     setIsFileMenuOpen(false);
     if (window.confirm("Create new design? Unsaved changes will be lost.")) {
-      await createNewDesign("Untitled Design");
+      const design = await createNewDesign("Untitled Design");
+      if (design?.id) {
+        router.replace(`/editor/${design.id}`);
+      }
       setDesignName("Untitled Design");
       setSaved(true);
+    }
+  };
+
+  const handleImport = async (file: File) => {
+    if (!canvas) {
+      toast.error("Canvas is not ready yet.");
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(await file.text()) as Record<string, unknown>;
+      const canvasJson =
+        parsed.canvas && typeof parsed.canvas === "object"
+          ? parsed.canvas
+          : parsed;
+      await canvas.loadFromJSON(canvasJson);
+      const imported = canvasJson as Record<string, unknown>;
+      const importedWidth = Number(imported.width);
+      const importedHeight = Number(imported.height);
+      if (importedWidth > 0 && importedHeight > 0) {
+        useEditorStore.getState().setCanvasSize(importedWidth, importedHeight);
+      }
+      canvas.discardActiveObject();
+      canvas.requestRenderAll();
+      useEditorStore.getState().refreshLayers();
+      useEditorStore.getState().saveHistory();
+      setSaved(false);
+      toast.success("Design imported");
+    } catch (error) {
+      console.error("Import failed:", error);
+      toast.error("Invalid design file");
     }
   };
 
@@ -225,6 +272,35 @@ export default function EditorTopbar() {
     if (store.isDirty()) { setExitTarget(target); }
     else { router.push(target); }
   };
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+      if (!(event.ctrlKey || event.metaKey)) return;
+
+      const key = event.key.toLowerCase();
+      if (key === "s") {
+        event.preventDefault();
+        void handleSaveDesign();
+      } else if (key === "o") {
+        event.preventDefault();
+        requestExit("/dashboard");
+      } else if (key === "n") {
+        event.preventDefault();
+        void handleNewDesign();
+      }
+    };
+
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [handleNewDesign, handleSaveDesign]);
 
   const handleExitSave = async () => {
     setExitTarget(null);
@@ -253,6 +329,17 @@ export default function EditorTopbar() {
 
   return (
     <>
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void handleImport(file);
+          event.target.value = "";
+        }}
+      />
       {/* =================================================
           MOBILE TOPBAR - Compact Canva-style
       ================================================= */}
@@ -306,8 +393,8 @@ export default function EditorTopbar() {
               {isFileMenuOpen && (
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute left-0 top-full mt-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl z-50" role="menu">
                   <button type="button" onClick={handleNewDesign} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-100" role="menuitem"><File size={16} /> New design <span className="ml-auto text-xs text-slate-400">⌘N</span></button>
-                  <button type="button" onClick={() => setIsFileMenuOpen(false)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-100" role="menuitem"><FolderOpen size={16} /> Open design <span className="ml-auto text-xs text-slate-400">⌘O</span></button>
-                  <button type="button" onClick={() => setIsFileMenuOpen(false)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-100" role="menuitem"><Upload size={16} /> Import</button>
+                  <button type="button" onClick={() => { setIsFileMenuOpen(false); requestExit("/dashboard"); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-100" role="menuitem"><FolderOpen size={16} /> Open design <span className="ml-auto text-xs text-slate-400">⌘O</span></button>
+                  <button type="button" onClick={() => { setIsFileMenuOpen(false); importInputRef.current?.click(); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-100" role="menuitem"><Upload size={16} /> Import</button>
                   <div className="my-1 border-t border-slate-100" />
                   <button type="button" onClick={() => { handleSaveDesign(); setIsFileMenuOpen(false); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-100" role="menuitem"><Save size={16} /> Save <span className="ml-auto text-xs text-slate-400">⌘S</span></button>
                   <div className="my-1 border-t border-slate-100" />
@@ -398,18 +485,18 @@ export default function EditorTopbar() {
           <button type="button" onClick={() => setIsShareOpen(true)} className="hidden items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 sm:flex"><Share2 size={16} /> Share</button>
 
           {/* Export Button */}
-          <div className="relative">
-            <button type="button" onClick={exportPNG} disabled={isSaving} className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50 lg:gap-2 lg:px-4 lg:py-2 lg:text-sm">
+          <div ref={exportMenuRef} className="relative">
+            <button type="button" onClick={() => setIsExportMenuOpen((value) => !value)} disabled={isSaving} className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50 lg:gap-2 lg:px-4 lg:py-2 lg:text-sm">
               <Download size={14} />
               <span className="hidden sm:inline">{isSaving ? "Saving..." : "Export"}</span>
               <ChevronDown size={12} className="hidden sm:block" />
             </button>
             <AnimatePresence>
-              {isMoreMenuOpen && (
+              {isExportMenuOpen && (
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-50" role="menu">
-                  <button type="button" onClick={() => { exportPNG(); setIsMoreMenuOpen(false); }} className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50" role="menuitem"><ImageIcon size={16} /> PNG <span className="ml-auto text-xs text-slate-400">High quality</span></button>
-                  <button type="button" onClick={() => { exportJPG(); setIsMoreMenuOpen(false); }} className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50" role="menuitem"><ImageIcon size={16} /> JPG <span className="ml-auto text-xs text-slate-400">Smaller file</span></button>
-                  <button type="button" onClick={() => { exportPDF(); setIsMoreMenuOpen(false); }} className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50" role="menuitem"><File size={16} /> PDF <span className="ml-auto text-xs text-slate-400">For printing</span></button>
+                  <button type="button" onClick={() => { exportPNG(); setIsExportMenuOpen(false); }} className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50" role="menuitem"><ImageIcon size={16} /> PNG <span className="ml-auto text-xs text-slate-400">High quality</span></button>
+                  <button type="button" onClick={() => { exportJPG(); setIsExportMenuOpen(false); }} className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50" role="menuitem"><ImageIcon size={16} /> JPG <span className="ml-auto text-xs text-slate-400">Smaller file</span></button>
+                  <button type="button" onClick={() => { exportPDF(); setIsExportMenuOpen(false); }} className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50" role="menuitem"><File size={16} /> PDF <span className="ml-auto text-xs text-slate-400">For printing</span></button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -417,14 +504,14 @@ export default function EditorTopbar() {
 
           {/* More Menu */}
           <div ref={moreMenuRef} className="relative">
-            <button type="button" onClick={() => setIsMoreMenuOpen((v) => !v)} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition active:bg-slate-100 lg:h-9 lg:w-9 lg:hover:bg-slate-100"><MoreHorizontal size={18} /></button>
+            <button type="button" onClick={() => { setIsMoreMenuOpen((v) => !v); setIsExportMenuOpen(false); }} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition active:bg-slate-100 lg:h-9 lg:w-9 lg:hover:bg-slate-100"><MoreHorizontal size={18} /></button>
             <AnimatePresence>
               {isMoreMenuOpen && (
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl border border-slate-200 shadow-xl py-1.5 z-50" role="menu">
                   <button type="button" onClick={() => { setIsShareOpen(true); setIsMoreMenuOpen(false); }} className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50" role="menuitem"><Share2 size={16} /> Share design</button>
-                  <button type="button" onClick={() => setIsMoreMenuOpen(false)} className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50" role="menuitem"><Globe size={16} /> Publish as website</button>
+                  <button type="button" onClick={() => { setIsMoreMenuOpen(false); setIsShareOpen(true); }} className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50" role="menuitem"><Globe size={16} /> Publish / share</button>
                   <div className="my-1 border-t border-slate-100" />
-                  <button type="button" onClick={() => setIsMoreMenuOpen(false)} className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50" role="menuitem"><Settings size={16} /> Settings</button>
+                  <button type="button" onClick={() => { setIsMoreMenuOpen(false); setShowLeftSidebar(true); setActiveTool("settings"); }} className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50" role="menuitem"><Settings size={16} /> Settings</button>
                   <button type="button" onClick={() => { setIsMoreMenuOpen(false); setIsShortcutsOpen(true); }} className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50" role="menuitem"><Keyboard size={16} /> Keyboard shortcuts</button>
                 </motion.div>
               )}
@@ -494,6 +581,7 @@ function ContextToolbar() {
   const canvas = useEditorStore((state) => state.canvas);
   const updateActiveProperties = useEditorStore((state) => state.updateActiveProperties);
   const saveHistory = useEditorStore((state) => state.saveHistory);
+  const refreshLayers = useEditorStore((state) => state.refreshLayers);
   const deleteSelected = useEditorStore((state) => state.deleteSelected);
   const duplicateSelected = useEditorStore((state) => state.duplicateSelected);
   const bringForward = useEditorStore((state) => state.bringForward);
@@ -583,8 +671,8 @@ function ContextToolbar() {
       </div>
       {/* Lock/Visibility */}
       <div className="flex items-center gap-0.5 shrink-0">
-        <button onClick={() => { const l = activeObject.lockMovementX === true; activeObject.set({ lockMovementX: !l, lockMovementY: !l, lockRotation: !l, lockScalingX: !l, lockScalingY: !l, selectable: l, evented: l }); canvas.requestRenderAll(); saveHistory(); }} className={`p-1 rounded text-slate-500 transition ${activeObject.lockMovementX ? "bg-slate-100 text-slate-900" : "active:bg-slate-200 lg:hover:bg-slate-100"}`}>{activeObject.lockMovementX ? <Lock size={14} /> : <Unlock size={14} />}</button>
-        <button onClick={() => { activeObject.set("visible", activeObject.visible === false); canvas.requestRenderAll(); saveHistory(); }} className={`p-1 rounded text-slate-500 transition ${activeObject.visible === false ? "bg-slate-100 text-slate-900" : "active:bg-slate-200 lg:hover:bg-slate-100"}`}>{activeObject.visible === false ? <EyeOff size={14} /> : <Eye size={14} />}</button>
+        <button onClick={() => { const l = activeObject.lockMovementX === true; activeObject.set({ lockMovementX: !l, lockMovementY: !l, lockRotation: !l, lockScalingX: !l, lockScalingY: !l, selectable: l, evented: l }); canvas.requestRenderAll(); refreshLayers(); saveHistory(); }} className={`p-1 rounded text-slate-500 transition ${activeObject.lockMovementX ? "bg-slate-100 text-slate-900" : "active:bg-slate-200 lg:hover:bg-slate-100"}`}>{activeObject.lockMovementX ? <Lock size={14} /> : <Unlock size={14} />}</button>
+        <button onClick={() => { activeObject.set("visible", activeObject.visible === false); canvas.requestRenderAll(); refreshLayers(); saveHistory(); }} className={`p-1 rounded text-slate-500 transition ${activeObject.visible === false ? "bg-slate-100 text-slate-900" : "active:bg-slate-200 lg:hover:bg-slate-100"}`}>{activeObject.visible === false ? <EyeOff size={14} /> : <Eye size={14} />}</button>
       </div>
     </div>
   );

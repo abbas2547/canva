@@ -146,6 +146,10 @@ interface EditorState {
 
   historyIndex: number;
 
+  historyBusy: boolean;
+
+  resetHistory: () => void;
+
   saveHistory: () => void;
 
   undo: () => Promise<void>;
@@ -225,6 +229,12 @@ interface EditorState {
 
 const MAX_HISTORY = 50;
 
+type HistorySnapshot = {
+  canvas: Record<string, unknown>;
+  width: number;
+  height: number;
+};
+
 function createObjectId(): string {
   if (
     typeof crypto !== "undefined" &&
@@ -236,6 +246,31 @@ function createObjectId(): string {
   return `object-${Date.now()}-${Math.random()
     .toString(36)
     .slice(2)}`;
+}
+
+function createHistorySnapshot(canvas: fabric.Canvas): string {
+  return JSON.stringify({
+    canvas: canvas.toJSON(),
+    width: canvas.getWidth(),
+    height: canvas.getHeight(),
+  } satisfies HistorySnapshot);
+}
+
+function parseHistorySnapshot(value: string): HistorySnapshot {
+  const parsed = JSON.parse(value) as Partial<HistorySnapshot> & Record<string, unknown>;
+  if (parsed.canvas && typeof parsed.canvas === "object") {
+    return {
+      canvas: parsed.canvas as Record<string, unknown>,
+      width: typeof parsed.width === "number" ? parsed.width : 0,
+      height: typeof parsed.height === "number" ? parsed.height : 0,
+    };
+  }
+
+  return {
+    canvas: parsed,
+    width: 0,
+    height: 0,
+  };
 }
 
 /* =========================================================
@@ -481,6 +516,11 @@ export const useEditorStore =
           activeObject: null,
           activeProperties: {},
           layers: [],
+          history: [],
+          historyIndex: -1,
+          historyBusy: false,
+          zoom: 1,
+          lastSavedSnapshot: null,
         });
 
         return;
@@ -757,6 +797,16 @@ export const useEditorStore =
 
     historyIndex: -1,
 
+    historyBusy: false,
+
+    resetHistory: () => {
+      set({
+        history: [],
+        historyIndex: -1,
+        historyBusy: false,
+      });
+    },
+
     saveHistory: () => {
       const canvas =
         get().canvas;
@@ -767,15 +817,14 @@ export const useEditorStore =
         canvas
       );
 
-      const json =
-        JSON.stringify(
-          canvas.toJSON()
-        );
+      const json = createHistorySnapshot(canvas);
 
       const {
         history,
         historyIndex,
       } = get();
+
+      if (get().historyBusy) return;
 
       if (
         historyIndex >= 0 &&
@@ -826,6 +875,8 @@ export const useEditorStore =
         historyIndex,
       } = get();
 
+      if (get().historyBusy) return;
+
       if (
         historyIndex <= 0
       ) {
@@ -841,9 +892,19 @@ export const useEditorStore =
       if (!json) return;
 
       try {
-        await canvas.loadFromJSON(
-          json
-        );
+        set({ historyBusy: true });
+        const snapshot = parseHistorySnapshot(json);
+        await canvas.loadFromJSON(snapshot.canvas);
+        if (snapshot.width > 0 && snapshot.height > 0) {
+          canvas.setDimensions({
+            width: snapshot.width,
+            height: snapshot.height,
+          });
+          set({
+            canvasWidth: snapshot.width,
+            canvasHeight: snapshot.height,
+          });
+        }
 
         canvas.discardActiveObject();
 
@@ -870,6 +931,8 @@ export const useEditorStore =
           "Undo error:",
           error
         );
+      } finally {
+        set({ historyBusy: false });
       }
     },
 
@@ -888,6 +951,8 @@ export const useEditorStore =
         historyIndex,
       } = get();
 
+      if (get().historyBusy) return;
+
       if (
         historyIndex >=
         history.length - 1
@@ -904,9 +969,19 @@ export const useEditorStore =
       if (!json) return;
 
       try {
-        await canvas.loadFromJSON(
-          json
-        );
+        set({ historyBusy: true });
+        const snapshot = parseHistorySnapshot(json);
+        await canvas.loadFromJSON(snapshot.canvas);
+        if (snapshot.width > 0 && snapshot.height > 0) {
+          canvas.setDimensions({
+            width: snapshot.width,
+            height: snapshot.height,
+          });
+          set({
+            canvasWidth: snapshot.width,
+            canvasHeight: snapshot.height,
+          });
+        }
 
         canvas.discardActiveObject();
 
@@ -933,6 +1008,8 @@ export const useEditorStore =
           "Redo error:",
           error
         );
+      } finally {
+        set({ historyBusy: false });
       }
     },
 
@@ -1101,6 +1178,10 @@ export const useEditorStore =
       );
 
       canvas.requestRenderAll();
+
+      if (canvas.getActiveObject() === object) {
+        get().setActiveObject(object);
+      }
 
       get().refreshLayers();
 
@@ -1551,6 +1632,8 @@ export const useEditorStore =
         history: [],
 
         historyIndex: -1,
+
+        historyBusy: false,
 
         layers: [],
 

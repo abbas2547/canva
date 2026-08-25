@@ -2,10 +2,29 @@
 "use client";
 
 import { useEditorStore } from "@/store/editorStore";
+import { exportDesignDataURL } from "@/lib/export-image";
 import { Undo2, Redo2, Download, ZoomIn, ZoomOut } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function EditorNavbar() {
-  const { undo, redo, zoom, setZoom, history, historyIndex } = useEditorStore();
+  const { canvas, undo, redo, zoom, setZoom, history, historyIndex } = useEditorStore();
+
+  const exportPNG = () => {
+    if (!canvas) {
+      toast.error("Canvas is not ready yet.");
+      return;
+    }
+    try {
+      const link = document.createElement("a");
+      link.href = exportDesignDataURL(canvas, { format: "png", multiplier: 2 });
+      link.download = "design.png";
+      link.click();
+      toast.success("Exported as PNG");
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Export failed");
+    }
+  };
 
   return (
     <header className="h-14 w-full bg-[#0e0e10] border-b border-white/10 px-4 flex items-center justify-between select-none z-50">
@@ -59,7 +78,7 @@ export default function EditorNavbar() {
           </button>
         </div>
 
-        <button className="h-9 px-4 bg-white hover:bg-zinc-200 text-black font-semibold rounded-lg text-xs transition flex items-center gap-2 shadow-lg shadow-white/5">
+        <button onClick={exportPNG} className="h-9 px-4 bg-white hover:bg-zinc-200 text-black font-semibold rounded-lg text-xs transition flex items-center gap-2 shadow-lg shadow-white/5">
           <Download className="w-3.5 h-3.5" />
           Export
         </button>

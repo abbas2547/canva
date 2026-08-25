@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Palette, Sparkles, Moon } from "lucide-react";
 import { backgroundCategories, type BackgroundItem } from "@/data/backgrounds";
 import { useEditorStore } from "@/store/editorStore";
+import * as fabric from "fabric";
 
 export default function BackgroundPanel() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -20,7 +21,7 @@ export default function BackgroundPanel() {
     if (item.type === "solid") {
       canvas.backgroundColor = item.value;
     } else if (item.type === "gradient") {
-      canvas.backgroundColor = item.value;
+      canvas.backgroundColor = createGradient(item.value, canvas);
     }
 
     canvas.requestRenderAll();
@@ -131,4 +132,22 @@ export default function BackgroundPanel() {
       </div>
     </div>
   );
+}
+
+function createGradient(value: string, canvas: fabric.Canvas) {
+  const colors = [...value.matchAll(/#[0-9a-f]{6}/gi)].map((match) => match[0]);
+  const stops = colors.length >= 2 ? colors : ["#ffffff", "#e2e8f0"];
+  return new fabric.Gradient({
+    type: "linear",
+    coords: {
+      x1: 0,
+      y1: 0,
+      x2: canvas.getWidth(),
+      y2: canvas.getHeight(),
+    },
+    colorStops: stops.map((color, index) => ({
+      offset: index / (stops.length - 1),
+      color,
+    })),
+  });
 }

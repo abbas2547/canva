@@ -263,7 +263,7 @@ export async function addUploadedImageToCanvas(
       UPLOAD_TIMEOUT_MS
     );
     try {
-      await image.setSrc(url);
+      await image.setSrc(url, { crossOrigin: "anonymous" });
       image.set({
         left: (canvas.getWidth() - (image.getScaledWidth() || 0)) / 2,
         top: (canvas.getHeight() - (image.getScaledHeight() || 0)) / 2,

@@ -17,7 +17,6 @@ import * as fabric from "fabric";
 export default function LayersPanel() {
   const canvas = useEditorStore((s) => s.canvas);
   const layers = useEditorStore((s) => s.layers);
-  const refreshLayers = useEditorStore((s) => s.refreshLayers);
   const selectLayer = useEditorStore((s) => s.selectLayer);
   const deleteLayer = useEditorStore((s) => s.deleteLayer);
   const toggleLayerVisibility = useEditorStore((s) => s.toggleLayerVisibility);
@@ -42,45 +41,15 @@ export default function LayersPanel() {
   };
 
   const handleDelete = (layerId: string) => {
-    if (!canvas) return;
-    const objects = canvas.getObjects();
-    const obj = objects.find((o) => (o as any).id === layerId);
-    if (obj) {
-      canvas.remove(obj);
-      canvas.requestRenderAll();
-      refreshLayers();
-    }
+    deleteLayer(layerId);
   };
 
   const handleToggleVisibility = (layerId: string) => {
-    if (!canvas) return;
-    const objects = canvas.getObjects();
-    const obj = objects.find((o) => (o as any).id === layerId);
-    if (obj) {
-      obj.set("visible", !obj.visible);
-      canvas.requestRenderAll();
-      toggleLayerVisibility(layerId);
-    }
+    toggleLayerVisibility(layerId);
   };
 
   const handleToggleLock = (layerId: string) => {
-    if (!canvas) return;
-    const objects = canvas.getObjects();
-    const obj = objects.find((o) => (o as any).id === layerId) as fabric.FabricObject;
-    if (obj) {
-      const locked = obj.lockMovementX === true;
-      obj.set({
-        lockMovementX: !locked,
-        lockMovementY: !locked,
-        lockRotation: !locked,
-        lockScalingX: !locked,
-        lockScalingY: !locked,
-        selectable: locked,
-        evented: locked,
-      });
-      canvas.requestRenderAll();
-      toggleLayerLock(layerId);
-    }
+    toggleLayerLock(layerId);
   };
 
   const getObjectIcon = (type: string) => {

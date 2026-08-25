@@ -120,6 +120,10 @@ export default function ImagesPanel() {
           };
         }
 
+        if (!response.ok || data.error) {
+          throw new Error(data.error || `Image search failed (${response.status})`);
+        }
+
         if (isMounted.current) {
           setPhotos((prev) =>
             replace ? (data.photos || []) : [...prev, ...(data.photos || [])]
@@ -128,9 +132,13 @@ export default function ImagesPanel() {
           setPage(data.page || pageNum);
           setLoading(false);
         }
-      } catch {
+      } catch (searchError) {
         if (isMounted.current) {
-          setError("Failed to load images");
+          setError(
+            searchError instanceof Error
+              ? searchError.message
+              : "Failed to load images"
+          );
           setLoading(false);
         }
       }

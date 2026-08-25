@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 
 import {
   AlignLeft,
@@ -33,6 +33,8 @@ import * as fabric from "fabric";
 
 import { useEditorStore } from "@/store/editorStore";
 import { motion, AnimatePresence } from "framer-motion";
+import { prepareImageForEditor } from "@/lib/image-upload";
+import toast from "react-hot-toast";
 
 /* =========================================================
    TYPES
@@ -53,12 +55,14 @@ export default function PropertyPanel() {
   const canvas = useEditorStore((state) => state.canvas);
   const updateActiveProperties = useEditorStore((state) => state.updateActiveProperties);
   const saveHistory = useEditorStore((state) => state.saveHistory);
+  const refreshLayers = useEditorStore((state) => state.refreshLayers);
   const deleteSelected = useEditorStore((state) => state.deleteSelected);
   const duplicateSelected = useEditorStore((state) => state.duplicateSelected);
   const bringForward = useEditorStore((state) => state.bringForward);
   const sendBackward = useEditorStore((state) => state.sendBackward);
   const bringToFront = useEditorStore((state) => state.bringToFront);
   const sendToBack = useEditorStore((state) => state.sendToBack);
+  const replaceInputRef = useRef<HTMLInputElement | null>(null);
 
   const isText = activeObject?.type === "i-text" || activeObject?.type === "text" || activeObject?.type === "textbox";
   const isImage = activeObject?.type === "image";
@@ -194,7 +198,13 @@ export default function PropertyPanel() {
   const handleSize = useCallback(
     (width: number, height: number) => {
       if (!activeObject || !canvas) return;
-      activeObject.set({ width, height });
+      const baseWidth = activeObject.width || 1;
+      const baseHeight = activeObject.height || 1;
+      activeObject.set({
+        scaleX: Math.max(0.01, width / baseWidth),
+        scaleY: Math.max(0.01, height / baseHeight),
+      });
+      activeObject.setCoords();
       canvas.requestRenderAll();
       saveHistory();
     },
@@ -214,15 +224,44 @@ export default function PropertyPanel() {
       evented: locked,
     });
     canvas.requestRenderAll();
+    refreshLayers();
     saveHistory();
-  }, [activeObject, canvas, saveHistory]);
+  }, [activeObject, canvas, refreshLayers, saveHistory]);
 
   const handleVisibility = useCallback(() => {
     if (!activeObject || !canvas) return;
     activeObject.set("visible", activeObject.visible === false);
     canvas.requestRenderAll();
+    refreshLayers();
     saveHistory();
-  }, [activeObject, canvas, saveHistory]);
+  }, [activeObject, canvas, refreshLayers, saveHistory]);
+
+  const handleReplaceImage = useCallback(
+    async (file: File) => {
+      if (!activeObject || !canvas || !isImage) return;
+      if (!["image/png", "image/jpeg", "image/webp", "image/gif"].includes(file.type)) {
+        toast.error("Please choose a PNG, JPG, WebP, or GIF image");
+        return;
+      }
+      try {
+        const prepared = await prepareImageForEditor(file);
+        const image = activeObject as fabric.FabricImage;
+        const center = image.getCenterPoint();
+        await image.setSrc(prepared.dataUrl);
+        image.set({
+          left: center.x - image.getScaledWidth() / 2,
+          top: center.y - image.getScaledHeight() / 2,
+        });
+        image.setCoords();
+        canvas.requestRenderAll();
+        saveHistory();
+      } catch (error) {
+        console.error("Failed to replace image:", error);
+        toast.error("Failed to replace image");
+      }
+    },
+    [activeObject, canvas, isImage, saveHistory]
+  );
 
   const currentFill = activeObject && isText ? (activeObject as any).fill || "#000000" : activeObject ? (activeObject as any).fill || "#6366f1" : "#6366f1";
   const currentStroke = activeObject ? (activeObject as any).stroke || "#000000" : "#000000";
@@ -449,11 +488,23 @@ export default function PropertyPanel() {
             <div className="space-y-2">
               <button
                 type="button"
+                onClick={() => replaceInputRef.current?.click()}
                 className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 <ImageIcon size={16} />
                 Replace Image
               </button>
+              <input
+                ref={replaceInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void handleReplaceImage(file);
+                  event.target.value = "";
+                }}
+              />
               <button
                 type="button"
                 onClick={() => useEditorStore.getState().setActiveTool("filters")}

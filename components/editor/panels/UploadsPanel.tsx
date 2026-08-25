@@ -18,8 +18,18 @@ export default function UploadsPanel() {
   const { user } = useAuth();
 
   const handleUpload = async (file: File) => {
-    if (!canvas) return;
-    if (!file.type.startsWith("image/")) return;
+    if (!canvas) {
+      toast.error("Canvas is not ready yet.");
+      return;
+    }
+    if (!["image/png", "image/jpeg", "image/webp", "image/gif"].includes(file.type)) {
+      toast.error("Please choose a PNG, JPG, WebP, or GIF image.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Images must be smaller than 10MB.");
+      return;
+    }
 
     if (isUploading) return;
     setIsUploading(true);
@@ -125,9 +135,11 @@ export default function UploadsPanel() {
                         const image = await placeImageOnCanvas(canvas, upload.url, 400);
                         canvas.setActiveObject(image);
                         canvas.requestRenderAll();
+                        useEditorStore.getState().refreshLayers();
                         saveHistory();
                       } catch (error) {
                         console.error("Error re-adding image:", error);
+                        toast.error("Failed to add image");
                       }
                     }}
                     className="h-7 w-7 rounded-full bg-white/90 flex items-center justify-center text-slate-700 hover:bg-white"

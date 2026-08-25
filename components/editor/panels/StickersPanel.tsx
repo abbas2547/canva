@@ -10,6 +10,8 @@ export default function StickersPanel() {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const canvas = useEditorStore((s) => s.canvas);
+  const saveHistory = useEditorStore((s) => s.saveHistory);
+  const refreshLayers = useEditorStore((s) => s.refreshLayers);
 
   const filteredCategories = selectedCategory
     ? stickerCategories.filter((c) => c.id === selectedCategory)
@@ -43,6 +45,8 @@ export default function StickersPanel() {
     canvas.add(text);
     canvas.setActiveObject(text);
     canvas.requestRenderAll();
+    refreshLayers();
+    saveHistory();
   };
 
   return (

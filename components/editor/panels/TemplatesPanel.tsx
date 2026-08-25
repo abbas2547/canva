@@ -25,6 +25,8 @@ export default function TemplatesPanel() {
   const canvas = useEditorStore((s) => s.canvas);
   const canvasWidth = useEditorStore((s) => s.canvasWidth);
   const canvasHeight = useEditorStore((s) => s.canvasHeight);
+  const saveHistory = useEditorStore((s) => s.saveHistory);
+  const refreshLayers = useEditorStore((s) => s.refreshLayers);
 
   const filteredCategories = useMemo(() => {
     if (search) {
@@ -105,7 +107,10 @@ export default function TemplatesPanel() {
       }
     });
 
+    canvas.discardActiveObject();
     canvas.requestRenderAll();
+    refreshLayers();
+    saveHistory();
   };
 
   return (

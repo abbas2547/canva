@@ -110,18 +110,51 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="features" className="relative z-10 mx-auto grid max-w-7xl gap-4 px-6 pb-20 sm:grid-cols-2 lg:grid-cols-4">
+      <section id="features" className="relative z-10 mx-auto max-w-7xl px-6 pb-20">
+        <div className="mb-8 max-w-2xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300">Built for momentum</p>
+          <h2 className="mt-3 text-3xl font-black sm:text-4xl">Everything you need to turn ideas into finished designs.</h2>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           ["Canvas editor", "Build polished designs with text, images, shapes, and backgrounds."],
+          ["Text controls", "Adjust fonts, size, color, weight, alignment, spacing, and line height."],
           ["Image tools", "Upload, resize, rotate, crop, filter, and arrange your images."],
-          ["Layers and history", "Keep control with layer ordering plus undo and redo."],
-          ["Cloud exports", "Save designs to your account and export finished work as PNG."],
+          ["Shapes and elements", "Add rectangles, circles, triangles, lines, and arrows."],
+          ["Layers", "Bring elements forward, send them back, lock them, or hide them."],
+          ["Undo and redo", "Experiment freely with reliable editing history."],
+          ["Cloud saving", "Save designs to your account and reopen them from the dashboard."],
+          ["PNG, JPG, and PDF", "Export completed work in the formats supported by the editor."],
         ].map(([title, description]) => (
           <article key={title} className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 transition hover:-translate-y-1 hover:border-purple-400/40">
             <h2 className="text-lg font-bold">{title}</h2>
             <p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>
           </article>
         ))}
+        </div>
+      </section>
+
+      <section className="relative z-10 mx-auto grid max-w-7xl gap-8 px-6 pb-24 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <div className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900 p-2 shadow-2xl shadow-purple-950/30">
+          <img src="/canva.png" alt="Actual Mini Canva editor interface" loading="lazy" className="w-full rounded-2xl object-contain" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-purple-300">See it in action</p>
+          <h2 className="mt-3 text-3xl font-black sm:text-4xl">From a blank canvas to a polished design.</h2>
+          <div className="mt-8 space-y-5">
+            {[
+              ["01", "Start", "Choose a canvas size or continue a design from your dashboard."],
+              ["02", "Create", "Add text, images, shapes, and backgrounds from the editor sidebar."],
+              ["03", "Refine", "Use properties, layers, filters, and history to get the details right."],
+              ["04", "Export", "Save your work to the cloud, then download it as PNG, JPG, or PDF."],
+            ].map(([number, title, description]) => (
+              <div key={number} className="flex gap-4">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-cyan-200">{number}</span>
+                <div><h3 className="font-bold">{title}</h3><p className="mt-1 text-sm leading-6 text-slate-400">{description}</p></div>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* DEV & PROJECT NAVIGATION FOOTER */}

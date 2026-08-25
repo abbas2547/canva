@@ -54,8 +54,8 @@ export default function PricingPage() {
           <div className="border-b border-white/10 px-6 py-5"><h2 className="text-xl font-bold">Plan comparison</h2></div>
           <div className="grid grid-cols-4 gap-4 px-6 py-4 text-sm text-slate-300">
             <span className="font-semibold text-white">Feature</span><span>Free</span><span>Pro</span><span>Business</span>
-            {["Basic editor", "Unlimited designs", "Advanced tools", "AI features", "Team features"].map((feature, index) => (
-              <span key={feature} className="contents"><span className="text-slate-400">{feature}</span><span>{index === 0 ? "✓" : "—"}</span><span>{index === 0 || index > 0 ? "Coming soon" : "—"}</span><span>{index === 0 || index > 0 ? "Coming soon" : "—"}</span></span>
+            {["Canvas editor", "Text and shapes", "Cloud saving", "Advanced tools", "AI features", "Team collaboration"].map((feature, index) => (
+              <span key={feature} className="contents"><span className="text-slate-400">{feature}</span><span>{index < 3 ? "✓" : "—"}</span><span>{index < 3 ? "✓" : "Coming soon"}</span><span>{index < 3 ? "✓" : "Coming soon"}</span></span>
             ))}
           </div>
         </div>

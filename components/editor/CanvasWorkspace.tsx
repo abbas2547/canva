@@ -1293,6 +1293,24 @@ export default function CanvasWorkspace() {
         .setZoom(1);
     }, []);
 
+  const fitToScreen = useCallback(() => {
+    const fabricCanvas = fabricCanvasRef.current;
+    if (!fabricCanvas) return;
+
+    const container = fabricCanvas.wrapperEl?.closest(".overflow-auto");
+    if (!(container instanceof HTMLElement)) return;
+
+    const availableWidth = Math.max(1, container.clientWidth - 32);
+    const availableHeight = Math.max(1, container.clientHeight - 32);
+    const nextZoom = Math.min(
+    availableWidth / Math.max(1, canvasWidth),
+    availableHeight / Math.max(1, canvasHeight),
+    3
+    );
+    setCurrentZoom(nextZoom);
+    useEditorStore.getState().setZoom(nextZoom);
+  }, [canvasHeight, canvasWidth]);
+
   /* =======================================================
      STORE ZOOM -> FABRIC
   ======================================================= */
@@ -1637,6 +1655,16 @@ export default function CanvasWorkspace() {
 
         if (
           !isTyping &&
+          (event.ctrlKey || event.metaKey) &&
+          event.key === "0"
+        ) {
+          event.preventDefault();
+          fitToScreen();
+          return;
+        }
+
+        if (
+          !isTyping &&
           (
             event.ctrlKey ||
             event.metaKey
@@ -1657,16 +1685,17 @@ export default function CanvasWorkspace() {
             event.ctrlKey ||
             event.metaKey
           ) &&
-          event.key.toLowerCase() ===
-            "z"
+            event.key.toLowerCase() === "z"
         ) {
-          event.preventDefault();
+            event.preventDefault();
 
-          await useEditorStore
-            .getState()
-            .undo();
+            if (event.shiftKey) {
+              await useEditorStore.getState().redo();
+            } else {
+              await useEditorStore.getState().undo();
+            }
 
-          return;
+            return;
         }
 
         if (
@@ -1701,6 +1730,7 @@ export default function CanvasWorkspace() {
     deleteObject,
     duplicateObject,
     deselect,
+    fitToScreen,
   ]);
 
   /* =======================================================
@@ -2217,7 +2247,7 @@ export default function CanvasWorkspace() {
 
         <button
           type="button"
-          onClick={resetZoom}
+          onClick={fitToScreen}
           title="Fit to screen (⌘0)"
           className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-black"
         >

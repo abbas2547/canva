@@ -4,12 +4,10 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseData";
 import { checkAdminAccess } from "@/lib/admin";
 import Link from "next/link";
 import {
@@ -43,6 +41,24 @@ interface StatsType {
   logins: number;
 }
 
+interface ActiveUser {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL: string;
+  lastSeen: string;
+}
+
+interface AuthUser {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL: string;
+  lastSignInTime: string;
+  creationTime: string;
+  disabled: boolean;
+}
+
 function StatCard({
   title,
   value,
@@ -69,7 +85,7 @@ export default function AdminPanel() {
   const { user, logout, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<"overview" | "logs">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "logs">("overview");
   const [logs, setLogs] = useState<LogType[]>([]);
   const [stats, setStats] = useState<StatsType>({
     users: 0,
@@ -80,54 +96,56 @@ export default function AdminPanel() {
   const [isLive, setIsLive] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [userSearchQuery, setUserSearchQuery] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [dataError, setDataError] = useState<string | null>(null);
+  const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
+  const [authUsers, setAuthUsers] = useState<AuthUser[]>([]);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isAdmin = checkAdminAccess(user?.email);
 
-  const fetchAdminData = useCallback(async () => {
-    setDataLoading(true);
-    setDataError(null);
+  const loadAdminData = useCallback(async () => {
+    if (!user) return;
     try {
-      const [logsResult, designsResult, usersResult] = await Promise.all([
-        supabase
-          .from("auth_logs")
-          .select("*")
-          .order("timestamp", { ascending: false })
-          .limit(50),
-        supabase.from("designs").select("*", { count: "exact", head: true }),
-        supabase.from("users").select("*", { count: "exact", head: true }),
-      ]);
-
-      if (logsResult.error) throw logsResult.error;
-      if (designsResult.error) throw designsResult.error;
-      if (usersResult.error) throw usersResult.error;
-
-      setLogs(
-        (logsResult.data || []).map((log: Record<string, unknown>) => ({
-          id: String(log.id || ""),
-          email: String(log.email || ""),
-          action: String(log.action || ""),
-          timestamp: String(log.timestamp || ""),
-        }))
-      );
-
-      setStats({
-        users: usersResult.count || 0,
-        designs: designsResult.count || 0,
-        logins: logsResult.data?.length || 0,
+      const token = await user.getIdToken();
+      const response = await fetch("/api/admin/overview", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
       });
-
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(`Admin API returned ${response.status} instead of JSON`);
+      }
+      const result = (await response.json()) as {
+        activeUsers?: ActiveUser[];
+        logs?: LogType[];
+        authUsers?: AuthUser[];
+        stats?: StatsType;
+        error?: string;
+        details?: string;
+      };
+      console.log("Admin API response:", {
+        status: response.status,
+        data: result,
+      });
+      if (!response.ok) {
+        throw new Error(result.details || result.error || `Request failed with status ${response.status}`);
+      }
+      setActiveUsers(result.activeUsers || []);
+      setLogs(result.logs || []);
+      setAuthUsers(result.authUsers || []);
+      setStats(result.stats || { users: 0, designs: 0, logins: 0 });
       setLastUpdated(new Date());
+      setDataError(null);
     } catch (error) {
-      console.error("Failed to fetch admin data:", error);
-      setDataError("Some admin data could not be loaded. Check your Supabase tables and permissions.");
+      console.error("REAL ADMIN ERROR:", error);
+      setDataError(error instanceof Error ? error.message : "Unable to load Firebase admin data.");
     } finally {
       setDataLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -135,24 +153,26 @@ export default function AdminPanel() {
       router.replace("/dashboard");
       return;
     }
-    const requestId = window.setTimeout(() => {
-      void fetchAdminData();
-    }, 0);
-    return () => window.clearTimeout(requestId);
-  }, [user, authLoading, router, fetchAdminData]);
-
-  useEffect(() => {
-    if (isLive && isAdmin) {
-      intervalRef.current = setInterval(() => {
-        fetchAdminData();
-      }, 30000);
+    if (!isLive) {
+      return;
     }
+    const initialRequest = window.setTimeout(() => {
+      void loadAdminData();
+    }, 0);
+    const refreshTimer = window.setInterval(() => {
+      void loadAdminData();
+    }, 5000);
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      window.clearTimeout(initialRequest);
+      window.clearInterval(refreshTimer);
     };
-  }, [isLive, isAdmin, fetchAdminData]);
+  }, [user, authLoading, router, isLive, refreshNonce, loadAdminData]);
+
+  const fetchAdminData = useCallback(() => {
+    setDataLoading(true);
+    setDataError(null);
+    setRefreshNonce((value) => value + 1);
+  }, []);
 
   const filteredLogs = useMemo(() => {
     if (!searchQuery.trim()) return logs;
@@ -164,14 +184,28 @@ export default function AdminPanel() {
     );
   }, [logs, searchQuery]);
 
+  const filteredAuthUsers = useMemo(() => {
+    const query = userSearchQuery.trim().toLowerCase();
+    if (!query) return authUsers;
+    return authUsers.filter((authUser) => {
+      const nickname = authUser.displayName || authUser.email.split("@")[0];
+      return (
+        nickname.toLowerCase().includes(query) ||
+        authUser.email.toLowerCase().includes(query)
+      );
+    });
+  }, [authUsers, userSearchQuery]);
+
   const handleDeleteLog = async (logId: string) => {
     setDeletingId(logId);
     try {
-      const { error } = await supabase
-        .from("auth_logs")
-        .delete()
-        .eq("id", logId);
-      if (error) throw error;
+      const token = await user?.getIdToken();
+      if (!token) throw new Error("Authentication required");
+      const response = await fetch(`/api/admin/overview?deleteLog=${encodeURIComponent(logId)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Unable to delete log");
       setLogs((prev) => prev.filter((l) => l.id !== logId));
     } catch (error) {
       console.error("Failed to delete log:", error);
@@ -202,12 +236,8 @@ export default function AdminPanel() {
   };
 
   const formatTimestamp = (ts: string) => {
-    try {
-      const d = new Date(ts);
-      return d.toLocaleString();
-    } catch {
-      return ts;
-    }
+    const date = new Date(ts);
+    return Number.isNaN(date.getTime()) ? "Unknown time" : date.toLocaleString();
   };
 
   if (authLoading || dataLoading) {
@@ -268,6 +298,19 @@ export default function AdminPanel() {
             >
               Auth Logs
             </button>
+            <button
+              onClick={() => {
+                setActiveTab("users");
+                setMobileMenuOpen(false);
+              }}
+              className={`rounded-lg px-4 py-3 text-left text-sm font-medium transition-colors ${
+                activeTab === "users"
+                  ? "bg-cyan-500/10 text-cyan-300"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
+              }`}
+            >
+              Firebase Users
+            </button>
             <div className="my-2 border-t border-slate-800" />
             <Link
               href="/dashboard"
@@ -318,6 +361,17 @@ export default function AdminPanel() {
               <LogIn size={18} />
               Auth Logs
             </button>
+            <button
+              onClick={() => setActiveTab("users")}
+              className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-medium transition-colors ${
+                activeTab === "users"
+                  ? "bg-cyan-500/10 text-cyan-300"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
+              }`}
+            >
+              <Users size={18} />
+              Firebase Users
+            </button>
           </nav>
           <div className="mt-auto border-t border-slate-800 pt-4">
             <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
@@ -352,7 +406,11 @@ export default function AdminPanel() {
           <div className="flex items-center justify-between px-8 py-4">
             <div className="flex items-center gap-4">
               <h2 className="text-lg font-semibold text-white">
-                {activeTab === "overview" ? "Overview" : "Auth Logs"}
+                {activeTab === "overview"
+                  ? "Overview"
+                  : activeTab === "users"
+                    ? "Firebase Users"
+                    : "Activity Logs"}
               </h2>
               <div className="flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1.5">
                 {isLive ? (
@@ -531,6 +589,77 @@ export default function AdminPanel() {
                 </div>
               </div>
 
+              <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-white">Currently online</h3>
+                    <p className="mt-1 text-xs text-slate-500">Live users with an active session</p>
+                  </div>
+                  <span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-300">{activeUsers.length} online</span>
+                </div>
+                {activeUsers.length === 0 ? (
+                  <p className="py-4 text-sm text-slate-500">No other users are currently online.</p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {activeUsers.map((activeUser) => {
+                      const nickname = activeUser.displayName.trim() || activeUser.email.split("@")[0] || "User";
+                      return (
+                        <div key={activeUser.uid} className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-3">
+                          {activeUser.photoURL ? (
+                            <img src={activeUser.photoURL} alt="" className="h-9 w-9 rounded-full object-cover" />
+                          ) : (
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-violet-500 text-sm font-bold text-slate-950">{nickname.charAt(0).toUpperCase()}</div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-white">{nickname}</p>
+                            <p className="truncate text-xs text-slate-500">{activeUser.email}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-white">Firebase Authentication users</h3>
+                    <p className="mt-1 text-xs text-slate-500">Accounts and their latest Firebase sign-in</p>
+                  </div>
+                  <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300">{authUsers.length} accounts</span>
+                </div>
+                {authUsers.length === 0 ? (
+                  <p className="py-4 text-sm text-slate-500">No Firebase Authentication users found.</p>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {authUsers.map((authUser) => {
+                      const nickname = authUser.displayName.trim() || authUser.email.split("@")[0] || "User";
+                      const online = activeUsers.some((activeUser) => activeUser.uid === authUser.uid);
+                      return (
+                        <div key={authUser.uid} className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-3">
+                          {authUser.photoURL ? (
+                            <img src={authUser.photoURL} alt="" className="h-9 w-9 rounded-full object-cover" />
+                          ) : (
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-pink-500 text-sm font-bold text-slate-950">{nickname.charAt(0).toUpperCase()}</div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate text-sm font-semibold text-white">{nickname}</p>
+                              <span className={`h-2 w-2 rounded-full ${online ? "bg-emerald-400" : "bg-slate-600"}`} title={online ? "Online" : "Offline"} />
+                            </div>
+                            <p className="truncate text-xs text-slate-500">{authUser.email}</p>
+                          </div>
+                          <span className="shrink-0 text-right text-[11px] text-slate-500">
+                            Last login<br />{formatTimestamp(authUser.lastSignInTime)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               <div className="mt-8">
                 <h3 className="mb-4 text-sm font-medium text-slate-400">
                   Quick Actions
@@ -584,6 +713,83 @@ export default function AdminPanel() {
                       </p>
                     </div>
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Firebase Users Tab */}
+          {activeTab === "users" && (
+            <div className="animate-fade-in">
+              <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">Firebase Authentication</p>
+                  <h3 className="mt-2 text-2xl font-black text-white">Users & sign-in history</h3>
+                  <p className="mt-2 text-sm text-slate-400">Every account registered in Firebase Authentication.</p>
+                </div>
+                <div className="relative w-full lg:w-80">
+                  <input
+                    type="search"
+                    placeholder="Search name or email..."
+                    value={userSearchQuery}
+                    onChange={(event) => setUserSearchQuery(event.target.value)}
+                    className="w-full rounded-xl border border-slate-800 bg-slate-900/70 px-4 py-3 pl-10 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/10"
+                  />
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                </div>
+              </div>
+
+              <div className="mb-4 flex items-center justify-between text-xs text-slate-500">
+                <span>Showing {filteredAuthUsers.length} of {authUsers.length} accounts</span>
+                <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-400" />Online now</span>
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px]">
+                    <thead className="bg-white/[0.03]">
+                      <tr className="border-b border-slate-800">
+                        <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">User</th>
+                        <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Email</th>
+                        <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Last login</th>
+                        <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Created</th>
+                        <th className="px-5 py-4 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/80">
+                      {filteredAuthUsers.map((authUser) => {
+                        const nickname = authUser.displayName.trim() || authUser.email.split("@")[0] || "User";
+                        const online = activeUsers.some((activeUser) => activeUser.uid === authUser.uid);
+                        return (
+                          <tr key={authUser.uid} className="transition hover:bg-white/[0.03]">
+                            <td className="px-5 py-4">
+                              <div className="flex items-center gap-3">
+                                {authUser.photoURL ? (
+                                  <img src={authUser.photoURL} alt="" className="h-10 w-10 rounded-full object-cover" />
+                                ) : (
+                                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-cyan-400 font-bold text-slate-950">{nickname.charAt(0).toUpperCase()}</div>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-semibold text-white">{nickname}</p>
+                                  <p className="truncate text-[11px] text-slate-500">{authUser.uid}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 text-sm text-slate-300">{authUser.email || "No email"}</td>
+                            <td className="px-5 py-4 text-sm text-slate-400">{formatTimestamp(authUser.lastSignInTime)}</td>
+                            <td className="px-5 py-4 text-sm text-slate-400">{formatTimestamp(authUser.creationTime)}</td>
+                            <td className="px-5 py-4 text-right">
+                              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${online ? "bg-emerald-400/10 text-emerald-300" : "bg-slate-800 text-slate-400"}`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-slate-500"}`} />
+                                {authUser.disabled ? "Disabled" : online ? "Online" : "Offline"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {filteredAuthUsers.length === 0 && <p className="px-6 py-14 text-center text-sm text-slate-500">No Firebase users match your search.</p>}
                 </div>
               </div>
             </div>

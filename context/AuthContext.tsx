@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -23,7 +24,7 @@ import {
 import Cookies from "js-cookie";
 import { auth } from "@/lib/firebaseClient";
 import { checkAdminAccess } from "@/lib/admin";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebaseClient";
 
 type UserRole = "user" | "premium" | "admin";
@@ -84,11 +85,39 @@ async function syncAuthCookies(
   }
 }
 
+async function setActiveUser(firebaseUser: User): Promise<void> {
+  await setDoc(doc(db, "activeUsers", firebaseUser.uid), {
+    uid: firebaseUser.uid,
+    email: firebaseUser.email || "",
+    displayName: firebaseUser.displayName || "",
+    photoURL: firebaseUser.photoURL || "",
+    lastSeen: new Date().toISOString(),
+  });
+}
+
+async function removeActiveUser(userId: string): Promise<void> {
+  await deleteDoc(doc(db, "activeUsers", userId));
+}
+
+async function writeAuthEvent(
+  firebaseUser: User,
+  action: "LOGIN" | "LOGOUT"
+): Promise<void> {
+  await setDoc(doc(db, "authLogs", `${firebaseUser.uid}_${Date.now()}`), {
+    uid: firebaseUser.uid,
+    email: firebaseUser.email || "",
+    displayName: firebaseUser.displayName || "",
+    action,
+    timestamp: new Date().toISOString(),
+  });
+}
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<UserRole>("user");
   const [error, setError] = useState<string | null>(null);
+  const activeUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     auth.authStateReady().then(() => {
@@ -104,11 +133,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const userRole = await resolveRole(firebaseUser);
           setRole(userRole);
           setUser(firebaseUser);
+          void setActiveUser(firebaseUser).catch((presenceError) =>
+            console.error("Active user sync error:", presenceError)
+          );
+          activeUserIdRef.current = firebaseUser.uid;
+          if (sessionStorage.getItem("pending-login-event") === "1") {
+            sessionStorage.removeItem("pending-login-event");
+            void writeAuthEvent(firebaseUser, "LOGIN").catch((eventError) =>
+              console.error("Login event sync error:", eventError)
+            );
+          }
           await syncAuthCookies(firebaseUser, userRole);
         } else {
+          const activeUserId = activeUserIdRef.current;
           setUser(null);
           setRole("user");
+          if (activeUserId) {
+            void removeActiveUser(activeUserId).catch((presenceError) =>
+              console.error("Active user removal error:", presenceError)
+            );
+          }
           await syncAuthCookies(null, "user");
+          activeUserIdRef.current = null;
         }
       } catch (err) {
         console.error("Auth state sync error:", err);
@@ -126,9 +172,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setError(null);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-    } catch (err: any) {
-      if (err?.code === "auth/popup-blocked" || err?.code === "auth/popup-closed-by-user") {
+      const result = await signInWithPopup(auth, provider);
+      void writeAuthEvent(result.user, "LOGIN").catch((eventError) =>
+        console.error("Login event sync error:", eventError)
+      );
+    } catch (err: unknown) {
+      const code =
+        typeof err === "object" && err !== null && "code" in err
+          ? String((err as { code?: unknown }).code)
+          : "";
+      if (code === "auth/popup-blocked" || code === "auth/popup-closed-by-user") {
+        sessionStorage.setItem("pending-login-event", "1");
         await signInWithRedirect(auth, provider);
       } else {
         throw err;
@@ -138,7 +192,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const loginWithEmail = useCallback(async (email: string, password: string) => {
     setError(null);
-    await signInWithEmailAndPassword(auth, email, password);
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    void writeAuthEvent(result.user, "LOGIN").catch((eventError) =>
+      console.error("Login event sync error:", eventError)
+    );
   }, []);
 
   const signUpWithEmail = useCallback(
@@ -153,12 +210,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         role: "user",
         createdAt: new Date().toISOString(),
       });
+      void writeAuthEvent(result.user, "LOGIN").catch((eventError) =>
+        console.error("Login event sync error:", eventError)
+      );
     },
     []
   );
 
   const logout = useCallback(async () => {
     setError(null);
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      await writeAuthEvent(currentUser, "LOGOUT").catch((eventError) =>
+        console.error("Logout event sync error:", eventError)
+      );
+      await removeActiveUser(currentUser.uid).catch((presenceError) =>
+        console.error("Active user removal error:", presenceError)
+      );
+    }
     await signOut(auth);
     Cookies.remove("firebase-token");
     Cookies.remove("user-role");

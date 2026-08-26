@@ -1,37 +1,43 @@
-// lib/firebase-admin.ts
-
 import admin from "firebase-admin";
 
-const serviceAccount = {
-  projectId:
-    process.env
-      .FIREBASE_PROJECT_ID,
-
-  clientEmail:
-    process.env
-      .FIREBASE_CLIENT_EMAIL,
-
-  privateKey:
-    process.env
-      .FIREBASE_PRIVATE_KEY?.replace(
-        /\\n/g,
-        "\n"
-      ),
-};
-
-if (!admin.apps.length) {
-
-  admin.initializeApp({
-    credential:
-      admin.credential.cert(
-        serviceAccount
-      ),
-  });
-
+function getPrivateKey(): string {
+  return (process.env.FIREBASE_PRIVATE_KEY || "")
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/\\n/g, "\n")
+    .replace(/\\$/, "");
 }
 
-export const adminAuth =
-  admin.auth();
+export function getAdminServices() {
+  if (!admin.apps.length) {
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = getPrivateKey();
 
-export const adminDb =
-  admin.firestore();
+    if (!projectId || !clientEmail || !privateKey) {
+      throw new Error(
+        "Firebase Admin configuration is incomplete. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY."
+      );
+    }
+
+    const serviceAccount: admin.ServiceAccount = {
+      projectId,
+      clientEmail,
+      privateKey,
+    };
+    Object.assign(serviceAccount, {
+      project_id: projectId,
+      client_email: clientEmail,
+      private_key: privateKey,
+    });
+
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+  }
+
+  return {
+    adminAuth: admin.auth(),
+    adminDb: admin.firestore(),
+  };
+}

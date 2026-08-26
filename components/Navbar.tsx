@@ -8,10 +8,6 @@ import {
 } from "@/context/AuthContext";
 
 import {
-  supabase,
-} from "@/lib/supabaseData";
-
-import {
   useRouter,
   usePathname,
 } from "next/navigation";
@@ -88,40 +84,8 @@ export default function Navbar() {
     async () => {
 
       try {
-
-        const userEmail =
-          user?.email;
-
         // FIREBASE LOGOUT
         await logout();
-
-        // SAVE LOG
-        if (userEmail) {
-
-          const {
-            error,
-          } = await supabase
-            .from("auth_logs")
-            .insert([
-              {
-                email:
-                  userEmail,
-                action:
-                  "LOGOUT",
-                timestamp:
-                  new Date().toISOString(),
-              },
-            ]);
-
-          if (error) {
-
-            console.error(
-              "Logout Log Error:",
-              error.message
-            );
-
-          }
-        }
 
         router.push("/");
 

@@ -71,7 +71,10 @@ export default function ViewDesignPage() {
     const page = design.pages?.find((p) => p.id === design.pages[0]?.id) || design.pages?.[0];
     if (page?.json) {
       try {
-        const json = JSON.parse(page.json);
+        const json =
+          typeof page.json === "string"
+            ? JSON.parse(page.json)
+            : page.json;
         canvas.loadFromJSON(json).then(() => {
           if (cancelled) return;
           canvas.requestRenderAll();
@@ -84,6 +87,7 @@ export default function ViewDesignPage() {
               width: design.width * scale,
               height: design.height * scale,
             });
+            canvas.requestRenderAll();
           }
         });
       } catch {

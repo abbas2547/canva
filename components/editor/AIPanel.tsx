@@ -55,6 +55,22 @@ const suggestions = [
     label: "🖼 Improve image",
     prompt: "Improve this image",
   },
+  {
+    label: "🌈 Change background",
+    prompt: "Change the background to blue",
+  },
+  {
+    label: "☀️ Brighten image",
+    prompt: "Make this image brighter",
+  },
+  {
+    label: "↗️ Bring layer forward",
+    prompt: "Bring the selected layer forward",
+  },
+  {
+    label: "🧹 Remove selection",
+    prompt: "Remove the selected object",
+  },
 ];
 
 export default function AIPanel() {
@@ -106,6 +122,11 @@ export default function AIPanel() {
       null
     );
 
+  const messagesContainerRef =
+    useRef<HTMLDivElement | null>(
+      null
+    );
+
   const textareaRef =
     useRef<HTMLTextAreaElement | null>(
       null
@@ -116,7 +137,10 @@ export default function AIPanel() {
   // ============================================================
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTo({
+      top: container.scrollHeight,
       behavior: "smooth",
     });
   }, [messages, isTyping]);
@@ -224,7 +248,7 @@ export default function AIPanel() {
     if (text.includes("improve") && (text.includes("image") || text.includes("photo"))) {
       return applyImageFilter("enhance");
     }
-    if (text.includes("brighten") || text.includes("lighten")) {
+    if (text.includes("brighten") || text.includes("brighter") || text.includes("lighten") || text.includes("increase brightness")) {
       return applyImageFilter("brighten");
     }
     if (text.includes("darken")) {
@@ -253,6 +277,16 @@ export default function AIPanel() {
       black: "#000000",
     };
     const namedColor = Object.keys(namedColors).find((color) => text.includes(color));
+
+    if (
+      text.includes("background") &&
+      (hexColor || namedColor)
+    ) {
+      const color = hexColor || namedColors[namedColor as string];
+      dispatch("editor:set-background", { color });
+      return `I've changed the canvas background to ${color}.`;
+    }
+
     if ((text.includes("change") || text.includes("set") || text.includes("make")) &&
       (text.includes("color") || text.includes("colour")) && (hexColor || namedColor)) {
       const color = hexColor || namedColors[namedColor as string];
@@ -663,7 +697,7 @@ export default function AIPanel() {
       text.includes("photo")
     ) {
       return (
-        "I can help you work with images. You can upload an image from the Uploads panel, then select it on the canvas for further editing."
+        "Select an image, then try “make this image brighter”, “improve this image”, “sharpen the image”, “blur the image”, or “make it grayscale”."
       );
     }
 
@@ -828,6 +862,7 @@ export default function AIPanel() {
 
   return (
     <div
+      ref={messagesContainerRef}
       className="
         flex
         h-full

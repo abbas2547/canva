@@ -75,21 +75,41 @@ export default function LandingPage() {
         </div>
 
         {/* Preview */}
-        <div className="mt-20 relative mx-auto max-w-6xl group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl blur opacity-25"></div>
-          <motion.div
-            className="interactive-surface relative bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xl shadow-slate-200/70"
-            initial={false}
-          >
-            <Image
-              src="/canva.png"
-              alt="Mini Canva editor preview"
-              width={1920}
-              height={1080}
-              loading="lazy"
-              className="w-full object-contain opacity-90"
-            />
-          </motion.div>
+        <div className="mt-20 relative mx-auto grid max-w-6xl items-center gap-10 text-left lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="relative mx-auto w-full max-w-2xl lg:translate-x-4">
+            <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl blur opacity-25"></div>
+            <motion.div
+              className="interactive-surface relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-200/70"
+              initial={false}
+            >
+              <Image
+                src="https://plus.unsplash.com/premium_photo-1682141028605-b2456e2bab14?q=80&w=387&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+                alt="Creative photo editing workspace"
+                width={900}
+                height={700}
+                loading="lazy"
+                className="h-auto max-h-[420px] w-full object-cover opacity-95"
+              />
+            </motion.div>
+          </div>
+          <div className="max-w-lg">
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-indigo-600">
+              Edit with intention
+            </p>
+            <h2 className="mt-3 text-3xl font-black leading-tight sm:text-4xl">
+              Every great design starts with one thoughtful edit.
+            </h2>
+            <p className="mt-5 text-base leading-7 text-slate-600">
+              Mini Canva gives your ideas room to breathe. Refine a photo, shape a
+              story, and turn a simple moment into something worth sharing.
+            </p>
+            <Link
+              href={user ? "/editor" : "/signup"}
+              className="interactive-button mt-7 inline-flex items-center rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-200/70 hover:bg-indigo-700"
+            >
+              Bring your idea to life <span className="ml-2">&rarr;</span>
+            </Link>
+          </div>
         </div>
       </motion.section>
 

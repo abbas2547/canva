@@ -117,7 +117,7 @@ export default function Navbar() {
     return pathname ===
       path
       ? "nav-link nav-active text-indigo-600 font-semibold"
-      : "nav-link text-slate-600 hover:text-indigo-600";
+      : "nav-link text-slate-800 hover:text-indigo-600";
 
   };
 
@@ -426,7 +426,7 @@ export default function Navbar() {
           type="button"
           aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
           aria-expanded={menuOpen}
-          className="md:hidden flex flex-col gap-1"
+          className="md:hidden flex h-10 w-10 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 shadow-sm transition hover:bg-indigo-100"
         >
 
           <span className="w-6 h-0.5 bg-slate-800 rounded-full"></span>

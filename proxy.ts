@@ -1,5 +1,3 @@
-// middleware.ts
-
 import { NextRequest, NextResponse } from "next/server";
 
 // Protected routes
@@ -9,12 +7,7 @@ const protectedRoutes = [
   "/admin",
 ];
 
-// Admin only routes
-const adminRoutes = [
-  "/admin",
-];
-
-export function middleware(
+export function proxy(
   request: NextRequest
 ) {
 
@@ -25,11 +18,6 @@ export function middleware(
   const token =
     request.cookies.get(
       "firebase-token"
-    )?.value;
-
-  const role =
-    request.cookies.get(
-      "user-role"
     )?.value;
 
   // =========================
@@ -52,28 +40,6 @@ export function middleware(
     url.searchParams.set("from", pathname);
 
     return NextResponse.redirect(url);
-  }
-
-  // =========================
-  // CHECK ADMIN ROUTES
-  // =========================
-  const isAdminRoute =
-    adminRoutes.some((route) =>
-      pathname.startsWith(route)
-    );
-
-  // If not admin
-  if (
-    isAdminRoute &&
-    role !== "admin"
-  ) {
-
-    return NextResponse.redirect(
-      new URL(
-        "/dashboard",
-        request.url
-      )
-    );
   }
 
   // Continue request

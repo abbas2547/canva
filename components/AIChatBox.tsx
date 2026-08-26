@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function AIChatBox() {
 
@@ -15,11 +15,6 @@ export default function AIChatBox() {
       text: "Hi 👋 I'm your AI design assistant. Ask me anything about photo editing, thumbnails, colors, templates or branding.",
     },
   ]);
-
-  // ✅ Fix hydration issues - use effect to track mount status
-  useEffect(() => {
-    // Component is mounted after first render
-  }, []);
 
   const sendMessage = async () => {
 

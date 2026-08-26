@@ -24,6 +24,10 @@ import {
   Trash2,
   Users,
   Palette,
+  Download,
+  Search,
+  ShieldCheck,
+  ArrowUpRight,
 } from "lucide-react";
 
 interface LogType {
@@ -62,7 +66,7 @@ function StatCard({
 }
 
 export default function AdminPanel() {
-  const { user, logout } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<"overview" | "logs">("overview");
@@ -72,36 +76,37 @@ export default function AdminPanel() {
     designs: 0,
     logins: 0,
   });
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
   const [isLive, setIsLive] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [dataError, setDataError] = useState<string | null>(null);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isAdmin = checkAdminAccess(user?.email);
 
   const fetchAdminData = useCallback(async () => {
+    setDataLoading(true);
+    setDataError(null);
     try {
-      const { data: logsData, error: logsError } = await supabase
-        .from("auth_logs")
-        .select("*")
-        .order("timestamp", { ascending: false })
-        .limit(50);
+      const [logsResult, designsResult, usersResult] = await Promise.all([
+        supabase
+          .from("auth_logs")
+          .select("*")
+          .order("timestamp", { ascending: false })
+          .limit(50),
+        supabase.from("designs").select("*", { count: "exact", head: true }),
+        supabase.from("users").select("*", { count: "exact", head: true }),
+      ]);
 
-      if (logsError) throw logsError;
-
-      const { count: designsCount } = await supabase
-        .from("designs")
-        .select("*", { count: "exact", head: true });
-
-      const { count: usersCount } = await supabase
-        .from("users")
-        .select("*", { count: "exact", head: true });
+      if (logsResult.error) throw logsResult.error;
+      if (designsResult.error) throw designsResult.error;
+      if (usersResult.error) throw usersResult.error;
 
       setLogs(
-        (logsData || []).map((log: Record<string, unknown>) => ({
+        (logsResult.data || []).map((log: Record<string, unknown>) => ({
           id: String(log.id || ""),
           email: String(log.email || ""),
           action: String(log.action || ""),
@@ -110,28 +115,31 @@ export default function AdminPanel() {
       );
 
       setStats({
-        users: usersCount || 0,
-        designs: designsCount || 0,
-        logins: logsData?.length || 0,
+        users: usersResult.count || 0,
+        designs: designsResult.count || 0,
+        logins: logsResult.data?.length || 0,
       });
 
       setLastUpdated(new Date());
     } catch (error) {
       console.error("Failed to fetch admin data:", error);
+      setDataError("Some admin data could not be loaded. Check your Supabase tables and permissions.");
     } finally {
-      setLoading(false);
+      setDataLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (loading) return;
+    if (authLoading) return;
     if (!user || !checkAdminAccess(user.email)) {
-      router.push("/dashboard");
+      router.replace("/dashboard");
       return;
     }
-    setIsAdmin(true);
-    fetchAdminData();
-  }, [user, loading, router, fetchAdminData]);
+    const requestId = window.setTimeout(() => {
+      void fetchAdminData();
+    }, 0);
+    return () => window.clearTimeout(requestId);
+  }, [user, authLoading, router, fetchAdminData]);
 
   useEffect(() => {
     if (isLive && isAdmin) {
@@ -172,6 +180,20 @@ export default function AdminPanel() {
     }
   };
 
+  const handleExportLogs = () => {
+    const rows = filteredLogs.map((log) =>
+      [log.email, log.action, log.timestamp].map((value) => `"${value.replace(/"/g, '""')}"`).join(",")
+    );
+    const csv = ["Email,Action,Timestamp", ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `mini-canva-auth-logs-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const toggleLive = () => setIsLive((prev) => !prev);
 
   const handleLogout = async () => {
@@ -188,7 +210,7 @@ export default function AdminPanel() {
     }
   };
 
-  if (loading) {
+  if (authLoading || dataLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#020617]">
         <div className="text-center">
@@ -367,10 +389,19 @@ export default function AdminPanel() {
               )}
               <button
                 onClick={fetchAdminData}
+                disabled={dataLoading}
                 className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-400 transition-colors hover:border-slate-700 hover:text-white"
               >
-                <RefreshCw size={14} />
+                <RefreshCw size={14} className={dataLoading ? "animate-spin" : ""} />
                 Refresh
+              </button>
+              <button
+                onClick={handleExportLogs}
+                disabled={filteredLogs.length === 0}
+                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 px-3 py-2 text-sm font-semibold text-slate-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Download size={14} />
+                Export CSV
               </button>
               <Link
                 href="/dashboard"
@@ -413,6 +444,28 @@ export default function AdminPanel() {
         </div>
 
         <div className="p-4 sm:p-6 lg:p-8">
+          <div className="mb-8 overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/15 via-cyan-500/10 to-transparent p-6">
+            <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
+              <div>
+                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-emerald-300">
+                  <ShieldCheck size={15} />
+                  Secure control center
+                </div>
+                <h2 className="text-2xl font-black text-white sm:text-3xl">Welcome back, Abbas.</h2>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">Monitor your creative platform, review authentication activity, and keep the workspace healthy.</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm text-slate-300">
+                <span className="block text-xs text-slate-500">Current status</span>
+                <span className="mt-1 flex items-center gap-2 font-semibold text-emerald-300"><span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_#34d399]" />All systems operational</span>
+              </div>
+            </div>
+          </div>
+          {dataError && (
+            <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+              <span>{dataError}</span>
+              <button onClick={fetchAdminData} className="font-semibold underline hover:text-white">Retry</button>
+            </div>
+          )}
           {/* Overview Tab */}
           {activeTab === "overview" && (
             <div>
@@ -446,6 +499,36 @@ export default function AdminPanel() {
                   color="text-emerald-400"
                   icon={<Activity size={20} />}
                 />
+              </div>
+
+              <div className="mt-8 grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-white">Recent activity</h3>
+                      <p className="mt-1 text-xs text-slate-500">Latest authentication events</p>
+                    </div>
+                    <button onClick={() => setActiveTab("logs")} className="flex items-center gap-1 text-xs font-semibold text-cyan-300 hover:text-white">View all <ArrowUpRight size={13} /></button>
+                  </div>
+                  <div className="space-y-3">
+                    {logs.slice(0, 4).map((log) => (
+                      <div key={log.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2.5">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm text-slate-200">{log.email || "Unknown user"}</p>
+                          <p className="text-xs text-slate-500">{log.action}</p>
+                        </div>
+                        <span className="shrink-0 text-xs text-slate-500">{formatTimestamp(log.timestamp)}</span>
+                      </div>
+                    ))}
+                    {logs.length === 0 && <p className="py-4 text-sm text-slate-500">No recent activity.</p>}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-800 bg-gradient-to-br from-violet-500/10 to-transparent p-5">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-violet-300">Quick insight</p>
+                  <p className="mt-4 text-3xl font-black text-white">{stats.logins}</p>
+                  <p className="mt-1 text-sm text-slate-400">events in the latest activity window</p>
+                  <button onClick={handleExportLogs} className="mt-5 flex items-center gap-2 text-sm font-semibold text-violet-300 hover:text-white"><Download size={15} /> Download report</button>
+                </div>
               </div>
 
               <div className="mt-8">
@@ -521,7 +604,7 @@ export default function AdminPanel() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full rounded-lg border border-slate-800 bg-slate-900/60 px-4 py-2 pl-10 text-sm text-white placeholder-slate-500 outline-none transition-colors focus:border-slate-700 focus:ring-1 focus:ring-slate-700 sm:w-72"
                   />
-                  <Activity
+                  <Search
                     size={14}
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
                   />

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import logoImage from "../logo.png.png";
+import Image from "next/image";
 
 import {
   useAuth,
@@ -163,9 +163,11 @@ export default function Navbar() {
 
           <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition">
 
-            <img
-              src={logoImage.src}
+            <Image
+              src="/logo.svg"
               alt="Mini Canva AI logo"
+              width={40}
+              height={40}
               className="w-full h-full object-cover"
             />
 

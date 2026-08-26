@@ -4,13 +4,273 @@ html {
   scroll-behavior: smooth;
 }
 
+.page-transition {
+  animation: pageEnter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animated-orb {
+  animation-duration: 12s;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+
+.animated-orb-indigo {
+  animation-name: floatOrbIndigo;
+}
+
+.animated-orb-cyan {
+  animation-duration: 14s;
+  animation-name: floatOrbCyan;
+}
+
+@keyframes floatOrbIndigo {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(50px, -20px, 0); }
+}
+
+@keyframes floatOrbCyan {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-40px, 30px, 0); }
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 body {
   margin: 0;
   padding: 0;
-  background: #060816;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: #f7f9fc;
+  color: #172033;
+  font-family: "Inter", "Avenir Next", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+body.light-theme {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(99, 102, 241, 0.08), transparent 28rem),
+    radial-gradient(circle at 92% 8%, rgba(6, 182, 212, 0.07), transparent 24rem),
+    #f7f9fc;
+  color: #172033;
+}
+
+body.light-theme::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  background-image: radial-gradient(rgba(99, 102, 241, 0.08) 0.7px, transparent 0.7px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(to bottom, black, transparent 55%);
+}
+
+/* Keep the existing Tailwind surfaces consistent while the product transitions
+   from the original dark prototype to the light visual system. */
+body.light-theme [class*="bg-[#020617]"],
+body.light-theme [class*="bg-[#0f172a]"],
+body.light-theme [class*="bg-slate-950"],
+body.light-theme [class*="bg-slate-900"] {
+  background-color: #ffffff !important;
+}
+
+body.light-theme [class*="bg-slate-800"] {
+  background-color: #f1f5f9 !important;
+}
+
+body.light-theme [class*="bg-white/"],
+body.light-theme [class*="bg-white\\["] {
+  background-color: rgba(255, 255, 255, 0.78) !important;
+}
+
+body.light-theme [class*="border-white/"],
+body.light-theme [class*="border-slate-800"],
+body.light-theme [class*="border-slate-700"] {
+  border-color: #e2e8f0 !important;
+}
+
+body.light-theme [class*="text-white"] {
+  color: #172033 !important;
+}
+
+body.light-theme [class*="text-white/"] {
+  color: #334155 !important;
+  opacity: 1 !important;
+}
+
+body.light-theme [class*="text-transparent"] {
+  color: transparent !important;
+}
+
+body.light-theme [class*="text-slate-300"] {
+  color: #475569 !important;
+}
+
+body.light-theme [class*="text-slate-600"],
+body.light-theme [class*="text-gray-500"] {
+  color: #475569 !important;
+}
+
+body.light-theme [class*="text-slate-400"],
+body.light-theme [class*="text-slate-500"] {
+  color: #64748b !important;
+}
+
+body.light-theme [class*="text-gray-400"] {
+  color: #64748b !important;
+}
+
+body.light-theme [class*="bg-gradient-to"] [class*="text-white"],
+body.light-theme [class*="bg-indigo-"],
+body.light-theme [class*="bg-purple-"],
+body.light-theme [class*="bg-cyan-"],
+body.light-theme [class*="bg-emerald-"] {
+  color: #ffffff !important;
+}
+
+body.light-theme input,
+body.light-theme textarea,
+body.light-theme select {
+  color: #172033;
+  background-color: #ffffff;
+  border-color: #dbe3ef;
+}
+
+body.light-theme input::placeholder,
+body.light-theme textarea::placeholder {
+  color: #64748b;
+}
+
+body.light-theme ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+body.light-theme button,
+body.light-theme a[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body.light-theme button:not(:disabled):hover,
+body.light-theme a[role="button"]:hover {
+  filter: brightness(0.98);
+}
+
+body.light-theme button:not(:disabled):active,
+body.light-theme a[role="button"]:active {
+  transform: translateY(1px);
+}
+
+body.light-theme [class*="rounded-2xl"][class*="border"],
+body.light-theme [class*="rounded-3xl"][class*="border"] {
+  box-shadow: 0 10px 30px rgba(51, 65, 85, 0.06);
+}
+
+body.light-theme [class*="rounded-2xl"][class*="border"]:hover,
+body.light-theme [class*="rounded-3xl"][class*="border"]:hover {
+  border-color: #c7d2fe !important;
+  box-shadow: 0 16px 36px rgba(79, 70, 229, 0.11);
+}
+
+.interactive-surface {
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.interactive-surface:hover {
+  transform: translateY(-3px);
+}
+
+.interactive-button {
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.interactive-button:hover {
+  transform: translateY(-3px) scale(1.01);
+  filter: brightness(1.03);
+}
+
+.interactive-button:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+}
+
+.nav-link::after {
+  position: absolute;
+  right: 0.25rem;
+  bottom: 0.2rem;
+  left: 0.25rem;
+  height: 2px;
+  content: "";
+  background: linear-gradient(90deg, #4f46e5, #06b6d4);
+  border-radius: 999px;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 180ms ease;
+}
+
+.nav-link:hover::after,
+.nav-link.nav-active::after {
+  transform: scaleX(1);
+}
+
+.mobile-nav-link {
+  display: block;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.85rem;
+  transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.mobile-nav-link:hover,
+.mobile-nav-link.nav-active {
+  background: #eef2ff;
+  color: #4338ca !important;
+  transform: translateX(3px);
+}
+
+.dropdown-enter,
+.mobile-menu-enter {
+  animation: menuEnter 180ms ease-out both;
+  transform-origin: top right;
+}
+
+@keyframes menuEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .animated-orb {
+    animation: none !important;
+  }
 }
 
 * {

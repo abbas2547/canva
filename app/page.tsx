@@ -3,21 +3,44 @@
 import { useAuth } from "@/context/AuthContext";
 import Image from "next/image";
 import Link from "next/link";
+import { motion, useReducedMotion } from "framer-motion";
 
 export default function LandingPage() {
   const { user } = useAuth();
+  const reduceMotion = useReducedMotion();
+  const reveal = reduceMotion
+    ? {}
+    : {
+        initial: false,
+        whileInView: { opacity: 1, y: 0 },
+        viewport: { once: true, amount: 0.15 },
+        transition: { duration: 0.5, ease: "easeOut" as const },
+      };
 
   return (
-    <div className="relative min-h-screen pt-20 overflow-hidden bg-[#020617] text-white flex flex-col justify-between">
+    <div className="relative min-h-screen pt-20 overflow-hidden bg-transparent text-slate-900 flex flex-col justify-between">
       {/* Background Glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-gradient-to-b from-purple-900/20 to-transparent blur-3xl" />
+      <div
+        aria-hidden="true"
+        className="animated-orb animated-orb-indigo pointer-events-none absolute -left-40 top-20 h-80 w-80 rounded-full bg-indigo-300/25 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="animated-orb animated-orb-cyan pointer-events-none absolute -right-32 top-72 h-96 w-96 rounded-full bg-cyan-200/30 blur-3xl"
+      />
 
       {/* HERO */}
-      <section className="relative max-w-7xl mx-auto px-6 py-20 text-center flex-grow">
+      <motion.section
+        className="relative max-w-7xl mx-auto px-6 py-20 text-center flex-grow"
+        {...reveal}
+      >
         {/* Badge */}
-        <span className="px-4 py-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 text-purple-400 text-sm font-medium mb-6 inline-block">
+        <motion.span
+          className="px-4 py-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 text-purple-700 text-sm font-medium mb-6 inline-block"
+          initial={false}
+        >
           AI-Powered Design Platform
-        </span>
+        </motion.span>
 
         {/* Heading */}
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight mb-8 leading-tight">
@@ -36,25 +59,16 @@ export default function LandingPage() {
 
         {/* Dynamic Main Action Buttons */}
         <div className="flex flex-wrap justify-center gap-4 mb-16">
-          {user ? (
-            <Link
-              href="/dashboard"
-              className="px-8 py-4 bg-white text-black font-bold rounded-xl hover:scale-105 transition-all"
-            >
-              Go To Dashboard
-            </Link>
-          ) : (
-            <Link
-              href="/login"
-              className="px-8 py-4 bg-white text-black font-bold rounded-xl hover:scale-105 transition-all"
-            >
-              Start Designing Free
-            </Link>
-          )}
+          <Link
+            href={user ? "/dashboard" : "/login"}
+            className="interactive-button inline-flex px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all"
+          >
+            {user ? "Go To Dashboard" : "Start Designing Free"}
+          </Link>
 
           <Link
             href={user ? "/dashboard" : "/signup"}
-            className="px-8 py-4 bg-slate-800 text-white font-bold rounded-xl border border-slate-700 hover:bg-slate-700 transition-all"
+            className="interactive-button inline-flex px-8 py-4 bg-white text-slate-800 font-bold rounded-xl border border-slate-300 shadow-sm hover:bg-indigo-50 hover:border-indigo-300 transition-all"
           >
             Explore Features
           </Link>
@@ -63,7 +77,10 @@ export default function LandingPage() {
         {/* Preview */}
         <div className="mt-20 relative mx-auto max-w-6xl group">
           <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl blur opacity-25"></div>
-          <div className="relative bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+          <motion.div
+            className="interactive-surface relative bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xl shadow-slate-200/70"
+            initial={false}
+          >
             <Image
               src="/canva.png"
               alt="Mini Canva editor preview"
@@ -72,16 +89,22 @@ export default function LandingPage() {
               loading="lazy"
               className="w-full object-contain opacity-90"
             />
-          </div>
+          </motion.div>
         </div>
-      </section>
+      </motion.section>
 
-      <section id="features" className="relative z-10 mx-auto max-w-7xl px-6 pb-20">
+      <motion.section id="features" className="relative z-10 mx-auto max-w-7xl px-6 pb-20" {...reveal}>
         <div className="mb-8 max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300">Built for momentum</p>
           <h2 className="mt-3 text-3xl font-black sm:text-4xl">Everything you need to turn ideas into finished designs.</h2>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <motion.div
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+          variants={reduceMotion ? undefined : { show: { transition: { staggerChildren: 0.06 } } }}
+          initial={false}
+          whileInView={reduceMotion ? undefined : "show"}
+          viewport={{ once: true, amount: 0.1 }}
+        >
         {[
           ["Canvas editor", "Build polished designs with text, images, shapes, and backgrounds."],
           ["Text controls", "Adjust fonts, size, color, weight, alignment, spacing, and line height."],
@@ -92,16 +115,19 @@ export default function LandingPage() {
           ["Cloud saving", "Save designs to your account and reopen them from the dashboard."],
           ["PNG, JPG, and PDF", "Export completed work in the formats supported by the editor."],
         ].map(([title, description]) => (
-          <article key={title} className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 transition hover:-translate-y-1 hover:border-purple-400/40">
+          <motion.article
+            key={title}
+            className="interactive-surface stagger-item rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-100/70"
+          >
             <h2 className="text-lg font-bold">{title}</h2>
             <p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>
-          </article>
+          </motion.article>
         ))}
-        </div>
-      </section>
+        </motion.div>
+      </motion.section>
 
-      <section className="relative z-10 mx-auto grid max-w-7xl gap-8 px-6 pb-24 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-        <div className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900 p-2 shadow-2xl shadow-purple-950/30">
+      <motion.section className="relative z-10 mx-auto grid max-w-7xl gap-8 px-6 pb-24 lg:grid-cols-[1.1fr_0.9fr] lg:items-center" {...reveal}>
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-2 shadow-2xl shadow-indigo-100/80">
           <Image
             src="/canva.png"
             alt="Actual Mini Canva editor interface"
@@ -128,7 +154,7 @@ export default function LandingPage() {
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
       <section className="relative z-10 mx-auto max-w-7xl px-6 pb-24">
         <div className="mb-8 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
@@ -147,7 +173,7 @@ export default function LandingPage() {
             <Link
               key={title}
               href={user ? "/editor" : "/signup"}
-              className="group relative min-h-72 overflow-hidden rounded-3xl border border-white/10 bg-slate-900"
+              className="interactive-surface group relative min-h-72 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
               aria-label={`Create ${title}`}
             >
               <div
@@ -164,7 +190,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="relative z-10 overflow-hidden border-t border-white/10 bg-slate-950/90">
+      <footer className="relative z-10 overflow-hidden border-t border-slate-200 bg-white/90">
         <div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 md:grid-cols-[1.4fr_1fr_1fr]">
           <div>
             <div className="flex items-center gap-3">

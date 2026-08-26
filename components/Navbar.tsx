@@ -106,13 +106,13 @@ export default function Navbar() {
 
     return pathname ===
       path
-      ? "text-white font-semibold"
-      : "text-slate-400 hover:text-white";
+      ? "nav-link nav-active text-indigo-600 font-semibold"
+      : "nav-link text-slate-600 hover:text-indigo-600";
 
   };
 
   return (
-    <nav className="fixed top-0 left-0 w-full z-50 border-b border-white/10 bg-[#020617]/80 backdrop-blur-2xl">
+    <nav className="fixed top-0 left-0 w-full z-50 border-b border-slate-200/80 bg-white/85 shadow-sm shadow-slate-200/40 backdrop-blur-2xl">
 
       {/* BACKGROUND EFFECT */}
       <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-cyan-500/5 pointer-events-none" />
@@ -139,7 +139,7 @@ export default function Navbar() {
 
           <div className="hidden sm:block">
 
-            <h1 className="text-lg font-extrabold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+            <h1 className="text-lg font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-cyan-500 bg-clip-text text-transparent">
 
               Mini Canva AI
 
@@ -161,6 +161,7 @@ export default function Navbar() {
           <Link
             href="/"
             className={`${navLink("/")} transition`}
+            aria-current={pathname === "/" ? "page" : undefined}
           >
             Home
           </Link>
@@ -168,6 +169,7 @@ export default function Navbar() {
           <Link
             href="/dashboard"
             className={`${navLink("/dashboard")} transition`}
+            aria-current={pathname === "/dashboard" ? "page" : undefined}
           >
             Dashboard
           </Link>
@@ -175,6 +177,7 @@ export default function Navbar() {
           <Link
             href="/editor"
             className={`${navLink("/editor")} transition`}
+            aria-current={pathname === "/editor" ? "page" : undefined}
           >
             Editor
           </Link>
@@ -185,6 +188,7 @@ export default function Navbar() {
             <Link
               href="/admin"
               className={`${navLink("/admin")} transition`}
+              aria-current={pathname === "/admin" ? "page" : undefined}
             >
               Admin
             </Link>
@@ -220,7 +224,7 @@ export default function Navbar() {
                     !profileOpen
                   )
                 }
-                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-2 transition-all"
+                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/60 px-3 py-2 transition-all"
               >
 
                 {/* IMAGE */}
@@ -236,7 +240,7 @@ export default function Navbar() {
                 {/* USER INFO */}
                 <div className="text-left">
 
-                  <p className="text-sm font-semibold text-white leading-none">
+                  <p className="text-sm font-semibold text-slate-900 leading-none">
 
                     {user.displayName ||
                       "User"}
@@ -273,7 +277,7 @@ export default function Navbar() {
               {/* DROPDOWN */}
               {profileOpen && (
 
-                <div className="absolute right-0 mt-3 w-72 rounded-3xl border border-white/10 bg-[#0f172a]/95 backdrop-blur-2xl shadow-2xl shadow-black/40 overflow-hidden">
+                <div className="dropdown-enter absolute right-0 mt-3 w-72 rounded-3xl border border-slate-200 bg-white/95 backdrop-blur-2xl shadow-2xl shadow-slate-300/30 overflow-hidden">
 
                   {/* HEADER */}
                   <div className="p-5 border-b border-white/5">
@@ -326,7 +330,7 @@ export default function Navbar() {
                           false
                         )
                       }
-                      className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-white/5 transition text-sm"
+                      className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-indigo-50 transition text-sm text-slate-700"
                     >
                       📊 Dashboard
                     </Link>
@@ -338,7 +342,7 @@ export default function Navbar() {
                           false
                         )
                       }
-                      className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-white/5 transition text-sm"
+                      className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-indigo-50 transition text-sm text-slate-700"
                     >
                       🎨 Editor
                     </Link>
@@ -350,7 +354,7 @@ export default function Navbar() {
                           false
                         )
                       }
-                      className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-white/5 transition text-sm"
+                      className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-indigo-50 transition text-sm text-slate-700"
                     >
                       👤 Profile
                     </Link>
@@ -409,14 +413,17 @@ export default function Navbar() {
               !menuOpen
             )
           }
+          type="button"
+          aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+          aria-expanded={menuOpen}
           className="md:hidden flex flex-col gap-1"
         >
 
-          <span className="w-6 h-0.5 bg-white rounded-full"></span>
+          <span className="w-6 h-0.5 bg-slate-800 rounded-full"></span>
 
-          <span className="w-6 h-0.5 bg-white rounded-full"></span>
+          <span className="w-6 h-0.5 bg-slate-800 rounded-full"></span>
 
-          <span className="w-6 h-0.5 bg-white rounded-full"></span>
+          <span className="w-6 h-0.5 bg-slate-800 rounded-full"></span>
 
         </button>
 
@@ -425,11 +432,11 @@ export default function Navbar() {
       {/* MOBILE MENU */}
       {menuOpen && (
 
-        <div className="md:hidden border-t border-slate-800 bg-[#020617]/95 backdrop-blur-xl px-6 py-6 space-y-5">
+        <div className="mobile-menu-enter md:hidden border-t border-slate-200 bg-white/95 backdrop-blur-xl px-6 py-6 space-y-5 shadow-xl shadow-slate-200/40">
 
           <Link
             href="/"
-            className="block text-slate-300 hover:text-white"
+            className={`mobile-nav-link ${navLink("/")}`}
             onClick={() =>
               setMenuOpen(false)
             }
@@ -439,7 +446,7 @@ export default function Navbar() {
 
           <Link
             href="/dashboard"
-            className="block text-slate-300 hover:text-white"
+            className={`mobile-nav-link ${navLink("/dashboard")}`}
             onClick={() =>
               setMenuOpen(false)
             }
@@ -449,7 +456,7 @@ export default function Navbar() {
 
           <Link
             href="/editor"
-            className="block text-slate-300 hover:text-white"
+            className={`mobile-nav-link ${navLink("/editor")}`}
             onClick={() =>
               setMenuOpen(false)
             }
@@ -462,7 +469,7 @@ export default function Navbar() {
 
             <Link
               href="/admin"
-              className="block text-slate-300 hover:text-white"
+              className={`mobile-nav-link ${navLink("/admin")}`}
               onClick={() =>
                 setMenuOpen(false)
               }
@@ -477,7 +484,7 @@ export default function Navbar() {
             <>
               <Link
                 href="/profile"
-                className="block text-slate-300 hover:text-white"
+                className={`mobile-nav-link ${navLink("/profile")}`}
                 onClick={() =>
                   setMenuOpen(false)
                 }

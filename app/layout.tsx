@@ -15,16 +15,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white antialiased overflow-x-hidden">
+    <html lang="en" data-scroll-behavior="smooth">
+      <body className="light-theme antialiased overflow-x-hidden">
         <AuthProvider>
           <Toaster
             position="top-right"
             toastOptions={{
               style: {
-                background: "#0f172a",
-                color: "#ffffff",
-                border: "1px solid #1e293b",
+                background: "#ffffff",
+                color: "#172033",
+                border: "1px solid #e2e8f0",
               },
             }}
           />

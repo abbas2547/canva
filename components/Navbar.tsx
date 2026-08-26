@@ -36,6 +36,9 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] =
     useState(false);
 
+  const [scrolled, setScrolled] =
+    useState(false);
+
   const [profileOpen, setProfileOpen] =
     useState(false);
 
@@ -79,6 +82,13 @@ export default function Navbar() {
 
   }, []);
 
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 12);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   // LOGOUT
   const handleLogout =
     async () => {
@@ -112,7 +122,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 w-full z-50 border-b border-slate-200/80 bg-white/85 shadow-sm shadow-slate-200/40 backdrop-blur-2xl">
+    <nav className={`site-nav fixed top-0 left-0 w-full z-50 border-b border-slate-200/80 bg-white/85 backdrop-blur-2xl ${scrolled ? "site-nav-scrolled" : ""}`}>
 
       {/* BACKGROUND EFFECT */}
       <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-cyan-500/5 pointer-events-none" />

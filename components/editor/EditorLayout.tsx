@@ -436,7 +436,7 @@ export default function EditorLayout({ initialDesignId }: { initialDesignId?: st
   }, [canvas]);
 
   return (
-    <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-white">
+    <div className="editor-shell relative flex h-dvh w-full flex-col overflow-hidden bg-white">
 
       {/* TOPBAR */}
       <div className="shrink-0">

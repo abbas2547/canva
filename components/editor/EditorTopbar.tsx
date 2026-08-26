@@ -343,7 +343,7 @@ export default function EditorTopbar() {
       {/* =================================================
           MOBILE TOPBAR - Compact Canva-style
       ================================================= */}
-      <header className="relative z-[100] flex h-12 shrink-0 items-center border-b border-slate-200 bg-white px-2 shadow-sm lg:h-14 lg:px-3">
+      <header className="editor-topbar relative z-[100] flex h-12 min-w-0 shrink-0 items-center overflow-hidden border-b border-slate-200 bg-white px-2 shadow-sm lg:h-14 lg:px-3">
         {/* LEFT: Back button + Logo */}
         <div className="flex min-w-0 items-center gap-1">
           {/* Dashboard back button - always visible on mobile */}
@@ -449,7 +449,7 @@ export default function EditorTopbar() {
         </div>
 
         {/* RIGHT SECTION */}
-        <div className="ml-auto flex items-center gap-1 lg:gap-1.5">
+        <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1 lg:gap-1.5">
           {/* Mobile: compact undo/redo */}
           <div className="flex items-center gap-0.5 lg:hidden">
             <button type="button" onClick={() => undo()} disabled={historyIndex <= 0} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 active:bg-slate-200 transition disabled:opacity-30"><Undo2 size={17} /></button>

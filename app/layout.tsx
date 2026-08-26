@@ -1,5 +1,5 @@
 import "./globals.css";
-import Navbar from "@/components/Navbar";
+import SiteNavbar from "@/components/SiteNavbar";
 import AIChatBoxEnhanced from "@/components/AIChatBox";
 import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "react-hot-toast";
@@ -28,7 +28,7 @@ export default function RootLayout({
               },
             }}
           />
-          <Navbar />
+          <SiteNavbar />
           {/* Wrap main with error boundary - optional but safe */}
           <main className="min-h-screen">
             {children}

@@ -168,6 +168,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return unsubscribe;
   }, []);
 
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const refreshPresence = () => {
+      void setActiveUser(user).catch((presenceError) =>
+        console.error("Active user heartbeat error:", presenceError)
+      );
+    };
+
+    const handlePageHide = () => {
+      void removeActiveUser(user.uid).catch((presenceError) =>
+        console.error("Active user page-hide cleanup error:", presenceError)
+      );
+    };
+
+    refreshPresence();
+    const heartbeat = window.setInterval(refreshPresence, 15_000);
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      window.clearInterval(heartbeat);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [user]);
+
   const loginWithGoogle = useCallback(async () => {
     setError(null);
     const provider = new GoogleAuthProvider();

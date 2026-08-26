@@ -50,6 +50,7 @@ import {
   Trash2,
   Copy,
 } from "lucide-react";
+import Image from "next/image";
 
 import { useEditorStore } from "@/store/editorStore";
 import { useDesignSync } from "@/hooks/useDesignSync";
@@ -364,9 +365,13 @@ export default function EditorTopbar() {
             className="flex shrink-0 items-center gap-1.5 rounded-lg px-1.5 py-1.5 transition active:bg-slate-100 lg:gap-2 lg:px-2"
             title="Go to Home"
           >
-            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-black text-white shadow-sm lg:h-8 lg:w-8 lg:rounded-xl">
-              <Sparkles size={13} />
-            </div>
+            <Image
+              src="/logo.svg"
+              alt="Mini Canva"
+              width={32}
+              height={32}
+              className="h-6 w-6 rounded-lg object-cover shadow-sm lg:h-8 lg:w-8 lg:rounded-xl"
+            />
             <span className="hidden text-sm font-bold text-slate-900 lg:block">MiniCanva</span>
           </button>
 

@@ -7,6 +7,11 @@ import { Toaster } from "react-hot-toast";
 export const metadata = {
   title: "Mini Canva - AI Design Studio",
   description: "Professional SaaS design platform with AI-powered features",
+  icons: {
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
+  },
 };
 
 export default function RootLayout({

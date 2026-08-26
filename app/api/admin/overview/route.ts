@@ -29,7 +29,13 @@ export async function GET(request: Request) {
         adminAuth.listUsers(1000),
       ]);
 
-    const activeUsers = activeUsersSnapshot.docs.map((userDoc) => {
+    const activeUserCutoff = Date.now() - 45_000;
+    const activeUsers = activeUsersSnapshot.docs
+      .filter((userDoc) => {
+        const lastSeen = Date.parse(String(userDoc.data().lastSeen || ""));
+        return Number.isFinite(lastSeen) && lastSeen >= activeUserCutoff;
+      })
+      .map((userDoc) => {
       const data = userDoc.data();
       return {
         uid: userDoc.id,
@@ -38,7 +44,7 @@ export async function GET(request: Request) {
         photoURL: String(data.photoURL || ""),
         lastSeen: String(data.lastSeen || ""),
       };
-    });
+      });
 
     const logs = logsSnapshot.docs.map((logDoc) => {
       const data = logDoc.data();

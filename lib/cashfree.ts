@@ -38,7 +38,7 @@ export function getCashfreeHeaders(): HeadersInit {
   return {
     Accept: "application/json",
     "Content-Type": "application/json",
-    "x-api-version": "2025-01-01",
+    "x-api-version": process.env.CASHFREE_API_VERSION?.trim() || "2023-08-01",
     "x-client-id": appId,
     "x-client-secret": secretKey,
   };

@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 function getPaymentConfigurationStatus() {
-  const environment = process.env.CASHFREE_ENVIRONMENT?.trim();
+  const environment = process.env.CASHFREE_ENVIRONMENT?.trim().replace(/^["']|["']$/g, "");
   const apiVersion = process.env.CASHFREE_API_VERSION?.trim() || "2023-08-01";
   const missing: string[] = [];
 

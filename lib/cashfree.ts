@@ -15,7 +15,7 @@ export const PAID_PLANS: Record<PaidPlanId, PaidPlan> = {
 };
 
 export function getCashfreeEnvironment(): "sandbox" | "production" {
-  const environment = process.env.CASHFREE_ENVIRONMENT;
+  const environment = process.env.CASHFREE_ENVIRONMENT?.trim().replace(/^["']|["']$/g, "");
   if (environment !== "sandbox" && environment !== "production") {
     throw new Error("CASHFREE_ENVIRONMENT must be sandbox or production.");
   }

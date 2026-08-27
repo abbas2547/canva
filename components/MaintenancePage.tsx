@@ -6,6 +6,17 @@ import { useEffect, useRef, useState } from "react";
 
 type HealthStatus = "checking" | "healthy" | "unhealthy" | "maintenance";
 
+function isAbortError(error: unknown): boolean {
+  return (
+    (error instanceof DOMException && error.name === "AbortError") ||
+    (error instanceof Error && error.name === "AbortError") ||
+    (typeof error === "object" &&
+      error !== null &&
+      "name" in error &&
+      (error as { name?: unknown }).name === "AbortError")
+  );
+}
+
 interface MaintenancePageProps {
   onRetry: () => Promise<void>;
   status: Exclude<HealthStatus, "checking" | "healthy">;
@@ -105,7 +116,7 @@ export default function MaintenanceGate({
       setConsecutiveFailures(0);
       setStatus("healthy");
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (isAbortError(error)) return;
       console.error("Application health check failed:", error);
       setConsecutiveFailures((failures) => {
         const nextFailures = failures + 1;

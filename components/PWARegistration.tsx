@@ -10,6 +10,11 @@ export default function PWARegistration() {
 
     const registerServiceWorker = async () => {
       try {
+        if (process.env.NODE_ENV !== "production") {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map((registration) => registration.unregister()));
+          return;
+        }
         await navigator.serviceWorker.register("/sw.js", { scope: "/" });
       } catch (error) {
         console.error("Service worker registration failed:", error);

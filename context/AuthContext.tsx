@@ -36,6 +36,7 @@ type UserRole = "user" | "premium" | "admin";
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
+  subscriptionLoading: boolean;
   role: UserRole;
   subscriptionPlan: SubscriptionPlan;
   error: string | null;
@@ -123,6 +124,7 @@ async function writeAuthEvent(
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [role, setRole] = useState<UserRole>("user");
   const [subscriptionPlan, setSubscriptionPlan] = useState<SubscriptionPlan>("free");
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +139,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setSubscriptionLoading(true);
       try {
         if (firebaseUser) {
           const access = await resolveAccess(firebaseUser);
@@ -173,11 +176,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setRole("user");
         setSubscriptionPlan("free");
       } finally {
+        setSubscriptionLoading(false);
         setLoading(false);
       }
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -290,6 +296,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
     setRole("user");
     setSubscriptionPlan("free");
+    setSubscriptionLoading(false);
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {
@@ -323,6 +330,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     () => ({
       user,
       loading,
+      subscriptionLoading,
       role,
       subscriptionPlan,
       error,
@@ -338,6 +346,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [
       user,
       loading,
+      subscriptionLoading,
       role,
       subscriptionPlan,
       error,

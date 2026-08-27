@@ -26,6 +26,7 @@ export default function Navbar() {
     logout,
     role,
     subscriptionPlan,
+    subscriptionLoading,
     loading,
   } = useAuth();
 
@@ -213,7 +214,7 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-4">
           {!loading && <InstallPWAButton />}
 
-          {loading ? (
+          {loading || subscriptionLoading ? (
 
             <div className="flex items-center gap-3">
 

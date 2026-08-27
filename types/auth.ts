@@ -8,7 +8,8 @@ export interface UserProfile {
   displayName: string;
   photoURL: string | null;
   role: UserRole;
-  subscriptionPlan: SubscriptionPlan;
+  subscriptionPlan:
+  SubscriptionPlan;
   subscriptionStatus: "active" | "inactive" | "cancelled";
   subscriptionEndDate: string | null;
   aiCreditsUsed: number;

@@ -5,6 +5,7 @@ import {
   PAID_PLANS,
   createCashfreeOrderId,
   getCashfreeBaseUrl,
+  getCashfreeEnvironment,
   getCashfreeHeaders,
   normalizeCustomerPhone,
   isValidCustomerPhone,
@@ -34,6 +35,19 @@ export async function POST(request: Request) {
 
     const orderId = createCashfreeOrderId(user.uid);
     const origin = new URL(request.url).origin;
+    const returnUrl =
+      process.env.CASHFREE_RETURN_URL?.trim() ||
+      (getCashfreeEnvironment() === "sandbox"
+        ? `${origin}/pricing?payment=complete&order_id=${encodeURIComponent(orderId)}`
+        : undefined);
+    const notifyUrl = process.env.CASHFREE_WEBHOOK_URL?.trim();
+    const orderMeta =
+      returnUrl || notifyUrl
+        ? {
+            ...(returnUrl ? { return_url: returnUrl } : {}),
+            ...(notifyUrl ? { notify_url: notifyUrl } : {}),
+          }
+        : undefined;
     const response = await fetch(`${getCashfreeBaseUrl()}/pg/orders`, {
       method: "POST",
       headers: {
@@ -50,12 +64,7 @@ export async function POST(request: Request) {
           customer_email: user.email || undefined,
           customer_phone: customerPhone,
         },
-        order_meta: {
-          return_url: `${origin}/pricing?payment=complete&order_id=${encodeURIComponent(orderId)}`,
-          notify_url:
-            process.env.CASHFREE_WEBHOOK_URL ||
-            `${origin}/api/payments/webhook`,
-        },
+        ...(orderMeta ? { order_meta: orderMeta } : {}),
         order_note: `${plan.name} subscription for Mini Canva AI`,
       }),
       cache: "no-store",

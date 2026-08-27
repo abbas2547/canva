@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import Script from "next/script";
 import { CheckCircle2, Loader2, Phone, X } from "lucide-react";
 import toast from "react-hot-toast";
@@ -62,19 +62,14 @@ const plans: Array<{
 ];
 
 export default function PricingPage() {
-  const { user, subscriptionPlan } = useAuth();
+  const { user, subscriptionPlan, loading: authLoading, subscriptionLoading } = useAuth();
   const router = useRouter();
   const [cashfreeReady, setCashfreeReady] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null);
   const [customerPhone, setCustomerPhone] = useState("");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("idle");
-  const [displayPlan, setDisplayPlan] = useState<SubscriptionPlan>("free");
-
-  useEffect(() => {
-    setDisplayPlan(subscriptionPlan);
-  }, [subscriptionPlan]);
-
-  const effectivePlan = displayPlan;
+  const planReady = !authLoading && !subscriptionLoading;
+  const effectivePlan: SubscriptionPlan = subscriptionPlan;
   const paidPlan = plans.find((plan) => plan.id === selectedPlan && plan.id !== "free");
   const isBusy = paymentStatus === "preparing" || paymentStatus === "processing";
 
@@ -190,12 +185,13 @@ export default function PricingPage() {
                 </ul>
                 <button
                   type="button"
-                  suppressHydrationWarning
-                  disabled={plan.id === effectivePlan || !canUpgradeTo(effectivePlan, plan.id) || isBusy}
+                  disabled={!planReady || plan.id === effectivePlan || !canUpgradeTo(effectivePlan, plan.id) || isBusy}
                   onClick={() => startCheckout(plan.id)}
                   className="interactive-button mt-8 w-full rounded-xl bg-indigo-600 px-5 py-4 font-semibold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {plan.id === effectivePlan
+                  {!planReady
+                    ? "Checking plan..."
+                    : plan.id === effectivePlan
                     ? "Current plan"
                     : effectivePlan !== "free" && plan.id === "free"
                       ? "Included"

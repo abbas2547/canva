@@ -24,8 +24,12 @@ import {
 import Cookies from "js-cookie";
 import { auth } from "@/lib/firebaseClient";
 import { checkAdminAccess } from "@/lib/admin";
-import { deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebaseClient";
+import {
+  normalizeSubscriptionPlan,
+  type SubscriptionPlan,
+} from "@/lib/subscription";
 
 type UserRole = "user" | "premium" | "admin";
 
@@ -33,6 +37,7 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   role: UserRole;
+  subscriptionPlan: SubscriptionPlan;
   error: string | null;
   signUpWithEmail: (
     email: string,
@@ -53,22 +58,25 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function resolveRole(firebaseUser: User): Promise<UserRole> {
-  if (checkAdminAccess(firebaseUser.email)) return "admin";
+async function resolveAccess(firebaseUser: User): Promise<{ role: UserRole; plan: SubscriptionPlan }> {
+  if (checkAdminAccess(firebaseUser.email)) return { role: "admin", plan: "business" };
 
   try {
     const usersSnap = await getDoc(doc(db, "users", firebaseUser.uid));
     if (usersSnap.exists()) {
       const data = usersSnap.data();
-      if (data.role === "admin" || data.role === "premium") {
-        return data.role;
+      const plan = normalizeSubscriptionPlan(data.subscriptionPlan);
+      if (data.role === "admin") return { role: "admin", plan };
+      if (data.role === "premium" || (plan !== "free" && data.subscriptionStatus === "active")) {
+        return { role: "premium", plan };
       }
+      return { role: "user", plan };
     }
   } catch {
     // Fall back to default role
   }
 
-  return "user";
+  return { role: "user", plan: "free" };
 }
 
 async function syncAuthCookies(
@@ -116,6 +124,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<UserRole>("user");
+  const [subscriptionPlan, setSubscriptionPlan] = useState<SubscriptionPlan>("free");
   const [error, setError] = useState<string | null>(null);
   const activeUserIdRef = useRef<string | null>(null);
 
@@ -130,8 +139,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          const userRole = await resolveRole(firebaseUser);
-          setRole(userRole);
+          const access = await resolveAccess(firebaseUser);
+          setRole(access.role);
+          setSubscriptionPlan(access.plan);
           setUser(firebaseUser);
           void setActiveUser(firebaseUser).catch((presenceError) =>
             console.error("Active user sync error:", presenceError)
@@ -143,11 +153,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               console.error("Login event sync error:", eventError)
             );
           }
-          await syncAuthCookies(firebaseUser, userRole);
+          await syncAuthCookies(firebaseUser, access.role);
         } else {
           const activeUserId = activeUserIdRef.current;
           setUser(null);
           setRole("user");
+          setSubscriptionPlan("free");
           if (activeUserId) {
             void removeActiveUser(activeUserId).catch((presenceError) =>
               console.error("Active user removal error:", presenceError)
@@ -160,6 +171,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error("Auth state sync error:", err);
         setUser(firebaseUser);
         setRole("user");
+        setSubscriptionPlan("free");
       } finally {
         setLoading(false);
       }
@@ -167,6 +179,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    return onSnapshot(
+      doc(db, "users", user.uid),
+      (snapshot) => {
+        const data = snapshot.data();
+        const plan = normalizeSubscriptionPlan(data?.subscriptionPlan);
+        setSubscriptionPlan(plan);
+        if (!checkAdminAccess(user.email)) {
+          setRole(data?.role === "premium" || plan !== "free" ? "premium" : "user");
+        }
+      },
+      (error) => {
+        console.error("Subscription sync error:", error);
+      }
+    );
+  }, [user?.uid, user?.email]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -258,6 +289,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     Cookies.remove("user-role");
     setUser(null);
     setRole("user");
+    setSubscriptionPlan("free");
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {
@@ -292,6 +324,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       user,
       loading,
       role,
+      subscriptionPlan,
       error,
       signUpWithEmail,
       loginWithEmail,
@@ -306,6 +339,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       user,
       loading,
       role,
+      subscriptionPlan,
       error,
       signUpWithEmail,
       loginWithEmail,

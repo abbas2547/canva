@@ -25,6 +25,7 @@ export default function Navbar() {
     user,
     logout,
     role,
+    subscriptionPlan,
     loading,
   } = useAuth();
 
@@ -225,6 +226,24 @@ export default function Navbar() {
           ) : user ? (
 
             <div
+              className="flex items-center gap-3"
+            >
+              {subscriptionPlan === "free" ? (
+                <Link
+                  href="/pricing"
+                  className="hidden lg:inline-flex items-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700"
+                >
+                  ✨ Upgrade Plan
+                </Link>
+              ) : (
+                <Link
+                  href="/pricing"
+                  className="hidden lg:inline-flex items-center rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-indigo-700 transition hover:bg-indigo-100"
+                >
+                  Current Plan: {subscriptionPlan}
+                </Link>
+              )}
+            <div
               className="relative"
               ref={profileRef}
             >
@@ -391,6 +410,8 @@ export default function Navbar() {
                 </div>
 
               )}
+
+            </div>
 
             </div>
 

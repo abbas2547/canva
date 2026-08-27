@@ -5,6 +5,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import type { Metadata, Viewport } from "next";
 import PWARegistration from "@/components/PWARegistration";
+import MaintenanceGate from "@/components/MaintenancePage";
 
 export const metadata: Metadata = {
   title: "Mini Canva - AI Design Studio",
@@ -35,26 +36,31 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" data-scroll-behavior="smooth">
+    <html
+      lang="en"
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
       <body className="light-theme antialiased overflow-x-hidden">
         <AuthProvider>
           <PWARegistration />
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              style: {
-                background: "#ffffff",
-                color: "#172033",
-                border: "1px solid #e2e8f0",
-              },
-            }}
-          />
-          <SiteNavbar />
-          {/* Wrap main with error boundary - optional but safe */}
-          <main className="min-h-screen">
-            {children}
-          </main>
-          <AIChatBoxEnhanced />
+          <MaintenanceGate>
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                style: {
+                  background: "#ffffff",
+                  color: "#172033",
+                  border: "1px solid #e2e8f0",
+                },
+              }}
+            />
+            <SiteNavbar />
+            <main className="min-h-screen">
+              {children}
+            </main>
+            <AIChatBoxEnhanced />
+          </MaintenanceGate>
         </AuthProvider>
       </body>
     </html>

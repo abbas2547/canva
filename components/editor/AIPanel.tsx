@@ -31,6 +31,7 @@ import {
 } from "react";
 
 import { useEditorStore } from "@/store/editorStore";
+import { useAuth } from "@/context/AuthContext";
 
 type Message = {
   id: number;
@@ -74,6 +75,7 @@ const suggestions = [
 ];
 
 export default function AIPanel() {
+  const { user } = useAuth();
   // ============================================================
   // STORE
   // ============================================================
@@ -759,7 +761,10 @@ export default function AIPanel() {
       const selected = selectedObject();
       const apiResponse = await fetch("/api/ai-chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await user?.getIdToken()}`,
+        },
         body: JSON.stringify({
           message: trimmed,
           context: JSON.stringify({
@@ -770,7 +775,13 @@ export default function AIPanel() {
         }),
       });
       const data = (await apiResponse.json().catch(() => ({}))) as { reply?: string; error?: string };
-      if (!apiResponse.ok) throw new Error(data.error || "AI service unavailable");
+      if (!apiResponse.ok) {
+        if (data.error?.toLowerCase().includes("premium") || apiResponse.status === 403) {
+          addMessage("assistant", "Premium AI features are available on the Pro plan. Upgrade from the pricing page to continue.");
+          return;
+        }
+        throw new Error(data.error || "AI service unavailable");
+      }
       addMessage("assistant", data.reply || "I couldn't generate advice for that request.");
     } catch (error) {
       console.error("Editor AI request failed:", error);

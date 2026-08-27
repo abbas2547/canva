@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { verifyPaymentUser } from "@/lib/payment-auth";
+import { getAdminServices } from "@/lib/firebase-admin";
+import { hasFeature, normalizeSubscriptionPlan } from "@/lib/subscription";
 
 const SYSTEM_PROMPT = `You are Mini Canva AI, a professional graphic design assistant.
 Give practical, concise advice about layouts, typography, colors, branding, image editing, and social media design.
@@ -13,6 +16,26 @@ interface OpenRouterResponse {
 
 export async function POST(req: Request) {
   try {
+    let firebaseUser;
+    try {
+      firebaseUser = await verifyPaymentUser(req);
+    } catch {
+      return NextResponse.json(
+        { error: "Sign in and upgrade to Pro to use premium AI features.", code: "UPGRADE_REQUIRED", requiredPlan: "pro" },
+        { status: 403 }
+      );
+    }
+
+    const { adminDb } = getAdminServices();
+    const userSnapshot = await adminDb.collection("users").doc(firebaseUser.uid).get();
+    const plan = normalizeSubscriptionPlan(userSnapshot.data()?.subscriptionPlan);
+    if (!hasFeature(plan, "premiumAIFeatures")) {
+      return NextResponse.json(
+        { error: "Premium AI features are available on the Pro plan.", code: "UPGRADE_REQUIRED", requiredPlan: "pro" },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json() as { message?: unknown; context?: unknown };
     const message = typeof body.message === "string" ? body.message.trim() : "";
     if (!message) {

@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useAuth } from "@/context/AuthContext";
+import Link from "next/link";
 
 export default function AIChatBox() {
 
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const { user, subscriptionPlan } = useAuth();
   const [messages, setMessages] = useState<
     { role: string; text: string }[]
   >([
@@ -33,16 +36,18 @@ export default function AIChatBox() {
     try {
       setLoading(true);
 
+      const token = user ? await user.getIdToken() : "";
       const response = await fetch("/api/ai-chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ message: userMessage }),
       });
 
       const text = await response.text();
-      let data: { reply?: string } = {};
+      let data: { reply?: string; error?: string; code?: string } = {};
 
       try {
         data = text ? JSON.parse(text) : {};
@@ -50,10 +55,12 @@ export default function AIChatBox() {
         data = { reply: "The AI assistant is unavailable right now. Please try again." };
       }
 
-      setMessages((prev) => [
-        ...prev,
-        { role: "ai", text: data.reply || "No response received." },
-      ]);
+      setMessages((prev) => [...prev, {
+        role: "ai",
+        text: data.code === "UPGRADE_REQUIRED"
+          ? "Premium AI features are available on the Pro plan."
+          : data.reply || data.error || "No response received.",
+      }]);
 
     } catch (error) {
       console.error(error);
@@ -125,7 +132,11 @@ export default function AIChatBox() {
 
           {/* Input */}
           <div className="p-4 border-t border-slate-800 bg-slate-900 flex gap-2">
-            <input
+            {(!user || subscriptionPlan === "free") ? (
+              <Link href={user ? "/pricing" : "/login?from=%2Fpricing"} className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-indigo-700">
+                {user ? "Upgrade to Pro to use AI" : "Sign in to use AI"}
+              </Link>
+            ) : <><input
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Ask AI for design help..."
@@ -138,7 +149,7 @@ export default function AIChatBox() {
               className="px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 font-semibold text-white hover:scale-105 transition"
             >
               Send
-            </button>
+            </button></>}
           </div>
 
         </motion.div>

@@ -11,6 +11,7 @@ import type { SubscriptionPlan } from "@/lib/subscription";
 
 type PlanId = "free" | "pro" | "business";
 type PaymentStatus = "idle" | "preparing" | "processing" | "success" | "failed" | "pending" | "active";
+type CashfreeLoadState = "loading" | "ready" | "error";
 
 interface CashfreeCheckout {
   checkout: (options: {
@@ -61,10 +62,25 @@ const plans: Array<{
   },
 ];
 
+const comparisonRows: Array<{
+  feature: string;
+  free: boolean;
+  pro: boolean;
+  business: boolean;
+}> = [
+  { feature: "Canvas editor", free: true, pro: true, business: true },
+  { feature: "Text and shapes", free: true, pro: true, business: true },
+  { feature: "Cloud saving", free: true, pro: true, business: true },
+  { feature: "Unlimited designs", free: false, pro: true, business: true },
+  { feature: "Advanced tools", free: false, pro: true, business: true },
+  { feature: "AI features", free: false, pro: true, business: true },
+  { feature: "Team collaboration", free: false, pro: false, business: true },
+];
+
 export default function PricingPage() {
   const { user, subscriptionPlan, loading: authLoading, subscriptionLoading } = useAuth();
   const router = useRouter();
-  const [cashfreeReady, setCashfreeReady] = useState(false);
+  const [cashfreeLoadState, setCashfreeLoadState] = useState<CashfreeLoadState>("loading");
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null);
   const [customerPhone, setCustomerPhone] = useState("");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("idle");
@@ -72,6 +88,7 @@ export default function PricingPage() {
   const effectivePlan: SubscriptionPlan = subscriptionPlan;
   const paidPlan = plans.find((plan) => plan.id === selectedPlan && plan.id !== "free");
   const isBusy = paymentStatus === "preparing" || paymentStatus === "processing";
+  const cashfreeReady = cashfreeLoadState === "ready";
 
   const startCheckout = (planId: PlanId) => {
     if (planId === "free") return;
@@ -84,7 +101,9 @@ export default function PricingPage() {
     setPaymentStatus("idle");
   };
 
-  const verifyPayment = async (orderId: string, token: string) => {
+  const verifyPayment = async (orderId: string) => {
+    if (!user) return { success: false, status: "failed" as const, error: "Authentication required." };
+    const token = await user.getIdToken();
     const response = await fetch("/api/payments/verify", {
       method: "POST",
       headers: {
@@ -94,12 +113,29 @@ export default function PricingPage() {
       body: JSON.stringify({ orderId }),
       cache: "no-store",
     });
-    return (await response.json()) as { success?: boolean; status?: PaymentStatus; error?: string };
+    const result = (await response.json()) as { success?: boolean; status?: PaymentStatus; error?: string };
+    if (!response.ok && response.status !== 202) {
+      throw new Error(result.error || "Payment verification failed.");
+    }
+    return result;
   };
 
   const handleCheckout = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!paidPlan || !user || !cashfreeReady || !window.Cashfree) return;
+    if (!paidPlan || !user || !cashfreeReady || !window.Cashfree) {
+      setPaymentStatus("failed");
+      toast.error(
+        cashfreeLoadState === "error"
+          ? "Secure checkout could not load. Please refresh and try again."
+          : "Secure checkout is still loading. Please try again in a moment."
+      );
+      return;
+    }
+    if (!/^[1-9]\d{9,14}$/.test(customerPhone.replace(/\D/g, ""))) {
+      setPaymentStatus("failed");
+      toast.error("Enter a valid phone number to continue.");
+      return;
+    }
 
     try {
       setPaymentStatus("preparing");
@@ -130,8 +166,8 @@ export default function PricingPage() {
         redirectTarget: "_modal",
       });
 
-      for (let attempt = 0; attempt < 5; attempt += 1) {
-        const verification = await verifyPayment(order.orderId, token);
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const verification = await verifyPayment(order.orderId);
         if (verification.success && verification.status === "active") {
           setPaymentStatus("success");
           toast.success("Payment successful! Your plan is active.");
@@ -143,7 +179,7 @@ export default function PricingPage() {
           toast.error("Payment failed. Please try again.");
           return;
         }
-        await new Promise((resolve) => window.setTimeout(resolve, 2500));
+        await new Promise((resolve) => window.setTimeout(resolve, 3000));
       }
 
       setPaymentStatus("pending");
@@ -160,7 +196,14 @@ export default function PricingPage() {
       <Script
         src="https://sdk.cashfree.com/js/v3/cashfree.js"
         strategy="afterInteractive"
-        onLoad={() => setCashfreeReady(true)}
+        onLoad={() => {
+          if (window.Cashfree) {
+            setCashfreeLoadState("ready");
+          } else {
+            setCashfreeLoadState("error");
+          }
+        }}
+        onError={() => setCashfreeLoadState("error")}
       />
       <div className="page-transition min-h-screen bg-transparent px-6 py-24 text-slate-900">
         <div className="mx-auto max-w-7xl">
@@ -177,7 +220,14 @@ export default function PricingPage() {
                 className={`interactive-surface relative rounded-3xl border p-8 ${plan.popular ? "border-indigo-300 bg-indigo-50/80 shadow-xl shadow-indigo-100" : "border-slate-200 bg-white shadow-sm"}`}
               >
                 {plan.popular && <span className="absolute right-6 top-6 rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-700">MOST POPULAR</span>}
-                <h2 className="text-3xl font-black text-slate-950">{plan.name}</h2>
+                <div className="flex items-start justify-between gap-4">
+                  <h2 className="text-3xl font-black text-slate-950">{plan.name}</h2>
+                  {planReady && plan.id === effectivePlan && (
+                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-700">
+                      Current plan
+                    </span>
+                  )}
+                </div>
                 <p className="mt-6 text-4xl font-black text-slate-950">{plan.price}<span className="text-base font-medium text-slate-500"> / month</span></p>
                 <p className="mt-4 min-h-12 text-slate-600">{plan.description}</p>
                 <ul className="mt-7 space-y-3 text-sm text-slate-600">
@@ -187,12 +237,21 @@ export default function PricingPage() {
                   type="button"
                   disabled={!planReady || plan.id === effectivePlan || !canUpgradeTo(effectivePlan, plan.id) || isBusy}
                   onClick={() => startCheckout(plan.id)}
+                  aria-label={
+                    plan.id === effectivePlan
+                      ? `${plan.name} is your current plan`
+                      : user
+                        ? `Upgrade to ${plan.name}`
+                        : `Sign in to choose ${plan.name}`
+                  }
                   className="interactive-button mt-8 w-full rounded-xl bg-indigo-600 px-5 py-4 font-semibold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {!planReady
                     ? "Checking plan..."
                     : plan.id === effectivePlan
                     ? "Current plan"
+                    : !user && plan.id !== "free"
+                    ? "Sign in to upgrade"
                     : effectivePlan !== "free" && plan.id === "free"
                       ? "Included"
                       : plan.id === "free"
@@ -207,8 +266,13 @@ export default function PricingPage() {
             <div className="border-b border-slate-200 px-6 py-5"><h2 className="text-xl font-bold text-slate-950">Plan comparison</h2></div>
             <div className="grid grid-cols-4 gap-4 px-6 py-4 text-sm text-slate-600">
               <span className="font-semibold text-slate-950">Feature</span><span>Free</span><span>Pro</span><span>Business</span>
-              {["Canvas editor", "Text and shapes", "Cloud saving", "Advanced tools", "AI features", "Team collaboration"].map((feature, index) => (
-                <span key={feature} className="contents"><span className="text-slate-500">{feature}</span><span>{index < 3 ? "✓" : "—"}</span><span>{index < 3 ? "✓" : "Coming soon"}</span><span>{index < 3 ? "✓" : "Coming soon"}</span></span>
+              {comparisonRows.map((row) => (
+                <span key={row.feature} className="contents">
+                  <span className="text-slate-500">{row.feature}</span>
+                  <span className={row.free ? "font-semibold text-emerald-600" : "text-slate-300"}>{row.free ? "✓" : "—"}</span>
+                  <span className={row.pro ? "font-semibold text-emerald-600" : "text-slate-300"}>{row.pro ? "✓" : "—"}</span>
+                  <span className={row.business ? "font-semibold text-emerald-600" : "text-slate-300"}>{row.business ? "✓" : "—"}</span>
+                </span>
               ))}
             </div>
           </div>
@@ -216,12 +280,12 @@ export default function PricingPage() {
       </div>
 
       {paidPlan && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/40 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/40 px-4 backdrop-blur-sm" role="presentation">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="checkout-title">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Secure checkout</p>
-                <h2 className="mt-2 text-2xl font-black text-slate-950">Upgrade to {paidPlan.name}</h2>
+                <h2 id="checkout-title" className="mt-2 text-2xl font-black text-slate-950">Upgrade to {paidPlan.name}</h2>
               </div>
               <button type="button" onClick={() => setSelectedPlan(null)} disabled={isBusy} className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
                 <X size={20} />
@@ -251,12 +315,26 @@ export default function PricingPage() {
                     required
                   />
                 </div>
-                {!cashfreeReady && <p className="mt-3 text-xs text-amber-600">Preparing secure checkout...</p>}
-                {paymentStatus === "pending" && <p className="mt-3 text-xs text-amber-600">Your payment is being verified.</p>}
+                {cashfreeLoadState === "loading" && (
+                  <p className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+                    <Loader2 size={14} className="animate-spin" />
+                    Loading secure payment window...
+                  </p>
+                )}
+                {cashfreeLoadState === "error" && (
+                  <p className="mt-3 text-xs text-red-600">
+                    Secure checkout could not load. Refresh the page and try again.
+                  </p>
+                )}
+                {paymentStatus === "pending" && (
+                  <p className="mt-3 text-xs text-amber-600">
+                    Payment is still being confirmed. You can safely try again if needed.
+                  </p>
+                )}
                 {paymentStatus === "failed" && <p className="mt-3 text-xs text-red-600">Payment failed. Please check your details and try again.</p>}
-                <button type="submit" disabled={isBusy || !cashfreeReady} className="interactive-button mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3.5 font-bold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
+                <button type="submit" disabled={isBusy} className="interactive-button mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3.5 font-bold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
                   {isBusy && <Loader2 size={17} className="animate-spin" />}
-                  {paymentStatus === "processing" ? "Processing your payment..." : paymentStatus === "preparing" ? "Preparing secure checkout..." : "Continue to Cashfree"}
+                  {paymentStatus === "processing" ? "Processing your payment..." : paymentStatus === "preparing" ? "Preparing secure checkout..." : paymentStatus === "pending" ? "Try payment again" : "Continue to secure payment"}
                 </button>
               </form>
             )}

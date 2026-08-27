@@ -5,7 +5,6 @@ import {
   PAID_PLANS,
   createCashfreeOrderId,
   getCashfreeBaseUrl,
-  getCashfreeEnvironment,
   getCashfreeHeaders,
   normalizeCustomerPhone,
   isValidCustomerPhone,
@@ -35,12 +34,19 @@ export async function POST(request: Request) {
 
     const orderId = createCashfreeOrderId(user.uid);
     const origin = new URL(request.url).origin;
+    const requestHost = new URL(request.url).hostname;
+    const isLocalOrigin =
+      requestHost === "localhost" ||
+      requestHost === "127.0.0.1" ||
+      requestHost === "::1";
     const returnUrl =
       process.env.CASHFREE_RETURN_URL?.trim() ||
-      (getCashfreeEnvironment() === "sandbox"
+      (!isLocalOrigin
         ? `${origin}/pricing?payment=complete&order_id=${encodeURIComponent(orderId)}`
         : undefined);
-    const notifyUrl = process.env.CASHFREE_WEBHOOK_URL?.trim();
+    const notifyUrl =
+      process.env.CASHFREE_WEBHOOK_URL?.trim() ||
+      (!isLocalOrigin ? `${origin}/api/payments/webhook` : undefined);
     const orderMeta =
       returnUrl || notifyUrl
         ? {
@@ -71,13 +77,29 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
-      const providerError = await response
-        .json()
-        .catch(() => ({}) as { code?: unknown; message?: unknown });
+      const providerBody = await response.text();
+      let providerError: { code?: unknown; message?: unknown; type?: unknown } = {};
+      try {
+        const parsed = JSON.parse(providerBody) as unknown;
+        if (typeof parsed === "object" && parsed !== null) {
+          providerError = parsed as {
+            code?: unknown;
+            message?: unknown;
+            type?: unknown;
+          };
+        }
+      } catch {
+        // Keep the provider response out of the client when it is not JSON.
+      }
+      const providerMessage =
+        typeof providerError.message === "string" ? providerError.message : "";
       console.error("Cashfree order creation failed:", {
         status: response.status,
         code: typeof providerError.code === "string" ? providerError.code : undefined,
+        type: typeof providerError.type === "string" ? providerError.type : undefined,
+        message: providerMessage || undefined,
         environment: process.env.CASHFREE_ENVIRONMENT,
+        apiVersion: process.env.CASHFREE_API_VERSION || "2023-08-01",
       });
       return NextResponse.json(
         {
@@ -85,6 +107,10 @@ export async function POST(request: Request) {
           error:
             response.status === 401
               ? "Cashfree rejected the configured credentials. Check that CASHFREE_ENVIRONMENT matches the keys."
+              : response.status === 403
+                ? "Cashfree rejected this merchant account or request. Check the live Cashfree account configuration."
+                : providerMessage
+                  ? `Cashfree rejected the order: ${providerMessage}`
               : "Unable to prepare secure checkout.",
         },
         { status: 502 }

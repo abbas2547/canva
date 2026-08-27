@@ -82,10 +82,10 @@ export default function ProfilePage() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 rounded-full border-4 border-slate-600 border-t-indigo-500 animate-spin" />
-          <p className="text-slate-300">Loading profile...</p>
+          <p className="text-slate-500">Loading profile...</p>
         </div>
       </div>
     );
@@ -97,33 +97,33 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4 py-8 sm:px-6 lg:px-8">
+    <div className="page-transition min-h-screen bg-transparent px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-2xl">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white sm:text-4xl">
+          <h1 className="text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
             Account Settings
           </h1>
 
-          <p className="mt-2 text-slate-400">
+          <p className="mt-2 text-slate-500">
             Manage your profile and account settings.
           </p>
         </div>
 
         {/* Profile Information */}
-        <div className="mb-6 rounded-xl border border-slate-700/50 bg-slate-800/50 p-6 shadow-xl">
-          <h2 className="mb-6 text-xl font-semibold text-white">
+        <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-6 text-xl font-bold text-slate-950">
             Profile Information
           </h2>
 
           <div className="space-y-5">
             {/* Email */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-400">
+              <label className="mb-2 block text-sm font-medium text-slate-600">
                 Email
               </label>
 
-              <div className="flex items-center gap-3 rounded-lg border border-slate-600/30 bg-slate-700/30 px-4 py-3 text-slate-300">
+              <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700">
                 <Mail className="h-5 w-5 shrink-0 text-slate-400" />
 
                 <span className="truncate">
@@ -150,7 +150,7 @@ export default function ProfilePage() {
                     }
                     placeholder="Enter your display name"
                     disabled={saving}
-                    className="w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                   />
 
                   <div className="flex flex-col gap-2 sm:flex-row">
@@ -158,7 +158,7 @@ export default function ProfilePage() {
                       type="button"
                       onClick={handleSaveProfile}
                       disabled={saving}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="interactive-button flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Check className="h-5 w-5" />
 
@@ -169,7 +169,7 @@ export default function ProfilePage() {
                       type="button"
                       onClick={handleCancelEdit}
                       disabled={saving}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-slate-700 px-4 py-2.5 text-white transition hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <X className="h-5 w-5" />
                       Cancel
@@ -177,15 +177,15 @@ export default function ProfilePage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col gap-3 rounded-lg border border-slate-600/30 bg-slate-700/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                  <span className="text-slate-300">
+                <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-slate-700">
                     {user.displayName || "Not set"}
                   </span>
 
                   <button
                     type="button"
                     onClick={() => setEditMode(true)}
-                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
+                    className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
                   >
                     Edit
                   </button>
@@ -199,9 +199,9 @@ export default function ProfilePage() {
                 Current Plan
               </label>
 
-              <div className="flex items-center justify-between rounded-lg border border-slate-600/30 bg-slate-700/30 px-4 py-3">
+              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                 <div>
-                  <p className="font-medium capitalize text-white">Free</p>
+                  <p className="font-medium capitalize text-slate-900">Free</p>
 
                   <p className="mt-1 text-xs text-slate-500">
                     Current account plan
@@ -217,8 +217,8 @@ export default function ProfilePage() {
         </div>
 
         {/* Danger Zone */}
-        <div className="rounded-xl border border-red-800/30 bg-red-950/20 p-6">
-          <h2 className="mb-2 text-xl font-semibold text-red-400">
+        <div className="rounded-3xl border border-red-200 bg-red-50/70 p-6">
+        <h2 className="mb-2 text-xl font-semibold text-red-700">
             Danger Zone
           </h2>
 
@@ -231,7 +231,7 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={handleLogout}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-3 font-medium text-white transition hover:bg-red-700"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 font-medium text-white transition hover:bg-red-700"
             >
               <LogOut className="h-5 w-5" />
               Logout
@@ -241,7 +241,7 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={() => setShowDeleteModal(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-700 px-4 py-3 font-medium text-white transition hover:bg-red-800"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-3 font-medium text-red-700 transition hover:bg-red-100"
             >
               <Trash2 className="h-5 w-5" />
               Delete Account
@@ -257,7 +257,7 @@ export default function ProfilePage() {
           onClick={() => setShowDeleteModal(false)}
         >
           <div
-            className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-800 p-6 shadow-2xl"
+            className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
@@ -305,4 +305,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-

@@ -3,15 +3,30 @@ import SiteNavbar from "@/components/SiteNavbar";
 import AIChatBoxEnhanced from "@/components/AIChatBox";
 import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "react-hot-toast";
+import type { Metadata, Viewport } from "next";
+import PWARegistration from "@/components/PWARegistration";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Mini Canva - AI Design Studio",
   description: "Professional SaaS design platform with AI-powered features",
+  manifest: "/manifest.json",
   icons: {
     icon: "/logo.svg",
     shortcut: "/logo.svg",
-    apple: "/logo.svg",
+    apple: "/icons/icon-180.png",
   },
+  appleWebApp: {
+    capable: true,
+    title: "Mini Canva AI",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#635bff",
 };
 
 export default function RootLayout({
@@ -23,6 +38,7 @@ export default function RootLayout({
     <html lang="en" data-scroll-behavior="smooth">
       <body className="light-theme antialiased overflow-x-hidden">
         <AuthProvider>
+          <PWARegistration />
           <Toaster
             position="top-right"
             toastOptions={{

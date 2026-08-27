@@ -17,6 +17,7 @@ import {
   useRef,
   useEffect,
 } from "react";
+import InstallPWAButton from "./InstallPWAButton";
 
 export default function Navbar() {
 
@@ -209,6 +210,7 @@ export default function Navbar() {
 
         {/* RIGHT SIDE */}
         <div className="hidden md:flex items-center gap-4">
+          {!loading && <InstallPWAButton />}
 
           {loading ? (
 
@@ -395,17 +397,16 @@ export default function Navbar() {
           ) : (
 
             <div className="flex items-center gap-3">
-
               <Link
                 href="/login"
-                className="px-5 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition text-sm font-medium"
+                className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-indigo-50 transition text-sm font-semibold text-slate-700"
               >
                 Login
               </Link>
 
               <Link
                 href="/signup"
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 font-semibold hover:scale-105 transition shadow-lg shadow-indigo-500/20"
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200"
               >
                 Get Started
               </Link>
@@ -443,6 +444,7 @@ export default function Navbar() {
       {menuOpen && (
 
         <div className="mobile-menu-enter md:hidden border-t border-slate-200 bg-white/95 backdrop-blur-xl px-6 py-6 space-y-5 shadow-xl shadow-slate-200/40">
+          {!loading && <InstallPWAButton />}
 
           <Link
             href="/"
@@ -522,7 +524,7 @@ export default function Navbar() {
 
               <Link
                 href="/login"
-                className="block w-full text-center py-3 rounded-xl border border-white/10 bg-white/5 font-semibold"
+                className="block w-full text-center py-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold"
                 onClick={() =>
                   setMenuOpen(false)
                 }
@@ -532,7 +534,7 @@ export default function Navbar() {
 
               <Link
                 href="/signup"
-                className="block w-full text-center py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 font-semibold"
+                className="block w-full text-center py-3 rounded-xl bg-indigo-600 text-white font-semibold"
                 onClick={() =>
                   setMenuOpen(false)
                 }

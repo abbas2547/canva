@@ -77,7 +77,7 @@ function LoginForm() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#020617] text-white">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-900">
         <Loader2 className="animate-spin" size={32} />
       </div>
     );
@@ -85,27 +85,26 @@ function LoginForm() {
 
   if (user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#020617] text-white">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-900">
         Redirecting...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center p-4 pt-24 relative overflow-hidden">
-      <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[150px] pointer-events-none" />
-      <div className="absolute inset-0 bg-[radial-gradient(#1e293b_0.8px,transparent_0.8px)] [background-size:32px_32px] opacity-20 pointer-events-none" />
+    <div className="page-transition min-h-screen bg-transparent text-slate-900 flex items-center justify-center p-4 pt-24 relative overflow-hidden">
+      <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-300/20 rounded-full blur-[150px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-violet-300/20 rounded-full blur-[150px] pointer-events-none" />
 
-      <div className="w-full max-w-md bg-[#0f172a]/70 border border-slate-800/80 rounded-[32px] p-8 backdrop-blur-2xl shadow-2xl relative z-10">
+      <div className="w-full max-w-md bg-white/90 border border-slate-200 rounded-3xl p-8 backdrop-blur-2xl shadow-[0_24px_70px_rgba(15,23,42,0.12)] relative z-10">
         <div className="text-center mb-8">
-          <div className="inline-flex p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl mb-4 text-indigo-400">
+          <div className="inline-flex p-3 bg-indigo-50 border border-indigo-100 rounded-2xl mb-4 text-indigo-600">
             <Sparkles size={24} />
           </div>
-          <h1 className="text-3xl font-black tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-black tracking-tight text-slate-950">
             Welcome Back
           </h1>
-          <p className="text-slate-400 mt-2 text-sm">
+          <p className="text-slate-500 mt-2 text-sm">
             Sign in to access your designs
           </p>
         </div>
@@ -114,7 +113,7 @@ function LoginForm() {
           type="button"
           onClick={handleGoogleSignIn}
           disabled={submitting}
-          className="w-full flex items-center justify-center gap-3 bg-white text-slate-900 font-semibold py-3 rounded-2xl hover:bg-slate-100 transition disabled:opacity-60 mb-6"
+          className="w-full flex items-center justify-center gap-3 bg-white text-slate-800 font-semibold py-3 rounded-xl border border-slate-200 shadow-sm hover:border-indigo-200 hover:bg-indigo-50/40 transition disabled:opacity-60 mb-6"
         >
           {submitting ? (
             <Loader2 className="animate-spin" size={20} />
@@ -144,28 +143,28 @@ function LoginForm() {
         </button>
 
         <div className="flex items-center gap-4 mb-6">
-          <div className="flex-1 h-px bg-slate-700" />
-          <span className="text-slate-500 text-sm">or</span>
-          <div className="flex-1 h-px bg-slate-700" />
+          <div className="flex-1 h-px bg-slate-200" />
+          <span className="text-slate-400 text-sm">or</span>
+          <div className="flex-1 h-px bg-slate-200" />
         </div>
 
         <form onSubmit={handleEmailSignIn} className="space-y-4">
           <div>
-            <label className="block text-sm text-slate-400 mb-2">Email</label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
               />
             </div>
           </div>
 
           <div className="flex items-center justify-between">
-            <label className="block text-sm text-slate-400">Password</label>
+            <label className="block text-sm font-medium text-slate-700">Password</label>
             <Link href="/forgot-password" className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition">
               Forgot password?
             </Link>
@@ -173,20 +172,20 @@ function LoginForm() {
 
           <div>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 aria-label="Password"
-                className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3 pl-10 pr-12 text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-10 pr-12 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
               />
               <button
                 type="button"
                 aria-label={showPassword ? "Hide password" : "Show password"}
                 onClick={() => setShowPassword((value) => !value)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -196,13 +195,13 @@ function LoginForm() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-3 rounded-2xl hover:opacity-90 transition disabled:opacity-60"
+            className="interactive-button w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition disabled:opacity-60"
           >
             {submitting ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
-        <p className="text-center text-slate-400 text-sm mt-6">
+        <p className="text-center text-slate-500 text-sm mt-6">
           Don&apos;t have an account?{" "}
           <Link href="/signup" className="text-indigo-400 hover:text-indigo-300 font-bold">
             Sign up

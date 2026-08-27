@@ -11,5 +11,17 @@ export async function verifyPaymentUser(request: Request) {
   }
 
   const { adminAuth } = getAdminServices();
-  return adminAuth.verifyIdToken(token);
+  try {
+    return await adminAuth.verifyIdToken(token);
+  } catch (error) {
+    console.error("Firebase payment token verification failed:", {
+      code:
+        typeof error === "object" && error !== null && "code" in error
+          ? String((error as { code?: unknown }).code)
+          : undefined,
+      message: error instanceof Error ? error.message : "Unknown token verification error",
+      projectId: process.env.FIREBASE_PROJECT_ID || "missing",
+    });
+    throw error;
+  }
 }

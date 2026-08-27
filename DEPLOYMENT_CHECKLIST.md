@@ -76,9 +76,23 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
 NEXT_PUBLIC_FIREBASE_APP_ID
+FIREBASE_PROJECT_ID
+FIREBASE_CLIENT_EMAIL
+FIREBASE_PRIVATE_KEY
 OPENROUTER_API_KEY
 NEXT_PUBLIC_API_URL=https://your-domain.com
+CASHFREE_APP_ID
+CASHFREE_SECRET_KEY
+CASHFREE_ENVIRONMENT=production
+CASHFREE_API_VERSION=2023-08-01
+CASHFREE_RETURN_URL=https://your-domain.com/pricing
+CASHFREE_WEBHOOK_URL=https://your-domain.com/api/payments/webhook
 ```
+
+Cashfree variables must be added to the deployment platform's **Production**
+environment using production Cashfree credentials. Add sandbox credentials
+separately to Development or Preview when testing sandbox payments. Redeploy
+after changing environment variables.
 
 ## Testing Checklist
 

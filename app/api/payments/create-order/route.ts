@@ -33,8 +33,11 @@ function getPaymentConfigurationStatus() {
 }
 
 export async function POST(request: Request) {
+  let phase = "Firebase authentication";
+
   try {
     const user = await verifyPaymentUser(request);
+    phase = "Cashfree configuration";
     const configuration = getPaymentConfigurationStatus();
     if (configuration.missing.length > 0) {
       console.error("Cashfree payment configuration is incomplete:", {
@@ -93,6 +96,7 @@ export async function POST(request: Request) {
             ...(notifyUrl ? { notify_url: notifyUrl } : {}),
           }
         : undefined;
+    phase = "Cashfree order creation";
     const response = await fetch(`${getCashfreeBaseUrl()}/pg/orders`, {
       method: "POST",
       headers: {
@@ -168,6 +172,7 @@ export async function POST(request: Request) {
       );
     }
 
+    phase = "Firestore payment record";
     const { adminDb } = getAdminServices();
     await adminDb.collection("payments").doc(orderId).set({
       orderId,
@@ -236,6 +241,7 @@ export async function POST(request: Request) {
       );
     }
     console.error("Payment order creation error:", {
+      phase,
       message: error instanceof Error ? error.message : "Unknown error",
       environment: process.env.CASHFREE_ENVIRONMENT || "missing",
       apiVersion: process.env.CASHFREE_API_VERSION || "2023-08-01",
@@ -243,7 +249,7 @@ export async function POST(request: Request) {
       hasSecretKey: Boolean(process.env.CASHFREE_SECRET_KEY?.trim()),
     });
     return NextResponse.json(
-      { success: false, error: "Unable to prepare secure checkout." },
+      { success: false, error: `${phase} failed. Please try again.` },
       { status: 500 }
     );
   }

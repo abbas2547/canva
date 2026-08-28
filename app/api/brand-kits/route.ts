@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminServices } from "@/lib/firebase-admin";
 import { verifyPaymentUser } from "@/lib/payment-auth";
-import { normalizeSubscriptionPlan } from "@/lib/subscription";
+import { hasFeature, normalizeSubscriptionPlan } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -29,6 +29,11 @@ export async function GET(request: Request) {
   try {
     const user = await verifyPaymentUser(request);
     const { adminDb } = getAdminServices();
+    const userSnapshot = await adminDb.collection("users").doc(user.uid).get();
+    const plan = normalizeSubscriptionPlan(userSnapshot.data()?.subscriptionPlan);
+    if (!hasFeature(plan, "brandKit")) {
+      return NextResponse.json({ success: false, error: "Brand Kit is available on the Pro plan." }, { status: 403 });
+    }
     const snapshot = await adminDb.collection("users").doc(user.uid).collection("brandKits").get();
     return NextResponse.json({
       success: true,
@@ -60,6 +65,9 @@ export async function POST(request: Request) {
     const { adminDb } = getAdminServices();
     const userSnapshot = await adminDb.collection("users").doc(user.uid).get();
     const plan = normalizeSubscriptionPlan(userSnapshot.data()?.subscriptionPlan);
+    if (!hasFeature(plan, "brandKit")) {
+      return NextResponse.json({ success: false, error: "Brand Kit is available on the Pro plan." }, { status: 403 });
+    }
     const kitsRef = adminDb.collection("users").doc(user.uid).collection("brandKits");
     const kitId = cleanString(body.id, 80) || `brand_${Date.now()}`;
     const kitRef = kitsRef.doc(kitId);
@@ -95,6 +103,11 @@ export async function DELETE(request: Request) {
     const id = new URL(request.url).searchParams.get("id")?.trim();
     if (!id) return NextResponse.json({ success: false, error: "Brand Kit ID is required." }, { status: 400 });
     const { adminDb } = getAdminServices();
+    const userSnapshot = await adminDb.collection("users").doc(user.uid).get();
+    const plan = normalizeSubscriptionPlan(userSnapshot.data()?.subscriptionPlan);
+    if (!hasFeature(plan, "brandKit")) {
+      return NextResponse.json({ success: false, error: "Brand Kit is available on the Pro plan." }, { status: 403 });
+    }
     await adminDb.collection("users").doc(user.uid).collection("brandKits").doc(id).delete();
     return NextResponse.json({ success: true });
   } catch (error) {

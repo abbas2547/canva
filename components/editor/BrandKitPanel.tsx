@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useEditorStore } from "@/store/editorStore";
 import { uploadFileToStorage } from "@/lib/db-operations";
 import type { BrandKit } from "@/types/brand-kit";
+import { hasFeature } from "@/lib/subscription";
 
 const fonts = ["Arial", "Georgia", "Helvetica", "Inter", "Poppins", "Roboto", "Times New Roman"];
 
@@ -22,6 +23,7 @@ export default function BrandKitPanel() {
   const [primaryFont, setPrimaryFont] = useState("Arial");
   const [secondaryFont, setSecondaryFont] = useState("Arial");
   const [newColor, setNewColor] = useState("#14b8a6");
+  const canUseBrandKit = hasFeature(subscriptionPlan, "brandKit");
   const isBusiness = subscriptionPlan === "business";
 
   const setForm = useCallback((kit: BrandKit) => {
@@ -57,9 +59,12 @@ export default function BrandKitPanel() {
   }, [authHeaders, setForm]);
 
   useEffect(() => {
+    if (!canUseBrandKit) {
+      return;
+    }
     const timer = window.setTimeout(() => void loadKits(), 0);
     return () => window.clearTimeout(timer);
-  }, [loadKits]);
+  }, [canUseBrandKit, loadKits]);
 
   const selectedKit = useMemo(() => kits.find((kit) => kit.id === selectedId), [kits, selectedId]);
 
@@ -131,10 +136,10 @@ export default function BrandKitPanel() {
     toast.success("Brand applied to your design.");
   };
 
-  if (loading) return <div className="p-4 text-sm text-slate-500">Loading Brand Kits...</div>;
-  if (subscriptionPlan === "free") {
+  if (!canUseBrandKit) {
     return <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center"><Palette className="text-indigo-500" /><p className="text-sm font-semibold text-slate-800">Brand Kit is available on Pro.</p><p className="text-xs text-slate-500">Upgrade to save colors, fonts, and logos for your designs.</p></div>;
   }
+  if (loading) return <div className="p-4 text-sm text-slate-500">Loading Brand Kits...</div>;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto p-3">

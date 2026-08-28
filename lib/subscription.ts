@@ -7,6 +7,7 @@ export type SubscriptionFeature =
   | "unlimitedDesigns"
   | "advancedEditingTools"
   | "premiumAIFeatures"
+  | "brandKit"
   | "teamWorkspace"
   | "prioritySupport";
 
@@ -19,6 +20,7 @@ export const PLAN_FEATURES: Record<SubscriptionPlan, readonly SubscriptionFeatur
     "unlimitedDesigns",
     "advancedEditingTools",
     "premiumAIFeatures",
+    "brandKit",
   ],
   business: [
     "basicEditor",
@@ -27,6 +29,7 @@ export const PLAN_FEATURES: Record<SubscriptionPlan, readonly SubscriptionFeatur
     "unlimitedDesigns",
     "advancedEditingTools",
     "premiumAIFeatures",
+    "brandKit",
     "teamWorkspace",
     "prioritySupport",
   ],
@@ -39,7 +42,20 @@ export const PLAN_RANK: Record<SubscriptionPlan, number> = {
 };
 
 export function normalizeSubscriptionPlan(value: unknown): SubscriptionPlan {
-  return value === "pro" || value === "business" ? value : "free";
+  if (typeof value !== "string") return "free";
+
+  switch (value.trim().toLowerCase()) {
+    case "business":
+    case "enterprise":
+      return "business";
+    case "pro":
+    case "premium":
+      return "pro";
+    case "free":
+    case "basic":
+    default:
+      return "free";
+  }
 }
 
 export function hasFeature(

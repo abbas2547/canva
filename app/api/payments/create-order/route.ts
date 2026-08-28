@@ -16,7 +16,8 @@ export const runtime = "nodejs";
 
 function getPaymentConfigurationStatus() {
   const environment = process.env.CASHFREE_ENVIRONMENT?.trim().replace(/^["']|["']$/g, "");
-  const apiVersion = process.env.CASHFREE_API_VERSION?.trim() || "2023-08-01";
+  const apiVersion =
+    process.env.CASHFREE_API_VERSION?.trim().replace(/^["']|["']$/g, "") || "2023-08-01";
   const missing: string[] = [];
 
   if (!process.env.CASHFREE_APP_ID?.trim()) missing.push("CASHFREE_APP_ID");
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
       requestHost === "127.0.0.1" ||
       requestHost === "::1";
     const returnUrl =
-      process.env.CASHFREE_RETURN_URL?.trim() ||
+      process.env.CASHFREE_RETURN_URL?.trim().replace(/^["']|["']$/g, "") ||
       (!isLocalOrigin
         ? `${origin}/pricing?payment=complete&order_id=${encodeURIComponent(orderId)}`
         : undefined);
@@ -237,7 +238,13 @@ export async function POST(request: Request) {
       hasSecretKey: Boolean(process.env.CASHFREE_SECRET_KEY?.trim()),
     });
     return NextResponse.json(
-      { success: false, error: `${phase} failed. Please try again.` },
+      {
+        success: false,
+        error:
+          phase === "Cashfree order creation" && error instanceof Error
+            ? `Cashfree order creation failed: ${error.message}`
+            : `${phase} failed. Please try again.`,
+      },
       { status: 500 }
     );
   }

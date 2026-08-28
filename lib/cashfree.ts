@@ -1,5 +1,9 @@
 import { randomUUID } from "crypto";
 
+function getEnvironmentValue(name: string): string {
+  return process.env[name]?.trim().replace(/^["']|["']$/g, "") || "";
+}
+
 export type PaidPlanId = "pro" | "business";
 
 export interface PaidPlan {
@@ -15,7 +19,7 @@ export const PAID_PLANS: Record<PaidPlanId, PaidPlan> = {
 };
 
 export function getCashfreeEnvironment(): "sandbox" | "production" {
-  const environment = process.env.CASHFREE_ENVIRONMENT?.trim().replace(/^["']|["']$/g, "");
+  const environment = getEnvironmentValue("CASHFREE_ENVIRONMENT");
   if (environment !== "sandbox" && environment !== "production") {
     throw new Error("CASHFREE_ENVIRONMENT must be sandbox or production.");
   }
@@ -29,8 +33,8 @@ export function getCashfreeBaseUrl(): string {
 }
 
 export function getCashfreeHeaders(): HeadersInit {
-  const appId = process.env.CASHFREE_APP_ID?.trim().replace(/^["']|["']$/g, "");
-  const secretKey = process.env.CASHFREE_SECRET_KEY?.trim().replace(/^["']|["']$/g, "");
+  const appId = getEnvironmentValue("CASHFREE_APP_ID");
+  const secretKey = getEnvironmentValue("CASHFREE_SECRET_KEY");
   if (!appId || !secretKey) {
     throw new Error("Cashfree server credentials are not configured.");
   }
@@ -38,7 +42,7 @@ export function getCashfreeHeaders(): HeadersInit {
   return {
     Accept: "application/json",
     "Content-Type": "application/json",
-    "x-api-version": process.env.CASHFREE_API_VERSION?.trim() || "2023-08-01",
+    "x-api-version": getEnvironmentValue("CASHFREE_API_VERSION") || "2023-08-01",
     "x-client-id": appId,
     "x-client-secret": secretKey,
   };

@@ -22,6 +22,7 @@ import {
   Wand2,
   SlidersHorizontal,
   Crop,
+  BriefcaseBusiness,
 } from "lucide-react";
 
 import { useEditorStore } from "@/store/editorStore";
@@ -47,6 +48,8 @@ import AdjustmentsPanel from "./panels/AdjustmentsPanel";
 import CropRotatePanel from "./panels/CropRotatePanel";
 import { useDesignSync } from "@/hooks/useDesignSync";
 import ShareModal from "./ShareModal";
+import BrandKitPanel from "./BrandKitPanel";
+import MagicResizePanel from "./MagicResizePanel";
 
 /* =========================================================
    MOBILE TOOL PANEL - renders inline content (no hidden)
@@ -69,6 +72,7 @@ function MobileToolPanel({ onClose }: { onClose: () => void }) {
     background: { title: "Background", icon: Palette, description: "Change your canvas background." },
     layers: { title: "Layers", icon: Layers3, description: "Manage your design layers." },
     settings: { title: "Settings", icon: Settings2, description: "Configure your design." },
+    brandkit: { title: "Brand Kit", icon: BriefcaseBusiness, description: "Apply your saved brand styles." },
   };
 
   const tools = [
@@ -85,6 +89,7 @@ function MobileToolPanel({ onClose }: { onClose: () => void }) {
     { id: "background", label: "BG", icon: Palette, color: "text-rose-500", bg: "bg-rose-50" },
     { id: "layers", label: "Layers", icon: Layers3, color: "text-indigo-500", bg: "bg-indigo-50" },
     { id: "settings", label: "Settings", icon: Settings2, color: "text-slate-500", bg: "bg-slate-50" },
+    { id: "brandkit", label: "Brand Kit", icon: BriefcaseBusiness, color: "text-indigo-500", bg: "bg-indigo-50" },
   ];
 
   const current = panelData[activeTool] ?? panelData.templates;
@@ -104,7 +109,8 @@ function MobileToolPanel({ onClose }: { onClose: () => void }) {
       case "stickers": return <StickersPanel />;
       case "background": return <BackgroundPanel />;
       case "layers": return <LayersPanel />;
-      case "settings": return <MobileSettingsPanel />;
+      case "settings": return <MagicResizePanel />;
+      case "brandkit": return <BrandKitPanel />;
       default: return <TemplatesPanel />;
     }
   };
@@ -247,6 +253,7 @@ function DesktopToolPanel() {
     background: { title: "Background", icon: Palette, description: "Change your canvas background." },
     layers: { title: "Layers", icon: Layers3, description: "Manage your design layers." },
     settings: { title: "Settings", icon: Settings2, description: "Configure your design." },
+    brandkit: { title: "Brand Kit", icon: BriefcaseBusiness, description: "Apply your saved brand styles." },
   };
 
   const current = panelData[activeTool] ?? panelData.templates;
@@ -266,7 +273,8 @@ function DesktopToolPanel() {
       case "stickers": return <StickersPanel />;
       case "background": return <BackgroundPanel />;
       case "layers": return <LayersPanel />;
-      case "settings": return <DesktopSettingsPanel />;
+      case "settings": return <MagicResizePanel />;
+      case "brandkit": return <BrandKitPanel />;
       default: return <TemplatesPanel />;
     }
   };

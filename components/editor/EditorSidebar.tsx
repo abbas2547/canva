@@ -15,6 +15,7 @@ import {
   SlidersHorizontal,
   Crop,
   Wand2,
+  BriefcaseBusiness,
 } from "lucide-react";
 
 import { useEditorStore } from "@/store/editorStore";
@@ -101,6 +102,13 @@ const tools = [
     id: "layers",
     label: "Layers",
     icon: Layers3,
+    color: "text-indigo-500",
+    bg: "bg-indigo-50",
+  },
+  {
+    id: "brandkit",
+    label: "Brand Kit",
+    icon: BriefcaseBusiness,
     color: "text-indigo-500",
     bg: "bg-indigo-50",
   },

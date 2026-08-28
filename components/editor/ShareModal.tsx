@@ -11,9 +11,9 @@ import {
   Check,
   ExternalLink,
 } from "lucide-react";
-import { getDesignById, updateDesign } from "@/lib/db-operations";
 import toast from "react-hot-toast";
 import { useAuth } from "@/context/AuthContext";
+import type { ShareMember, ShareRole, ShareVisibility } from "@/types/sharing";
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -23,6 +23,10 @@ interface ShareModalProps {
 
 export default function ShareModal({ isOpen, onClose, designId }: ShareModalProps) {
   const [isPublic, setIsPublic] = useState(false);
+  const [visibility, setVisibility] = useState<ShareVisibility>("private");
+  const [members, setMembers] = useState<ShareMember[]>([]);
+  const [memberEmail, setMemberEmail] = useState("");
+  const [memberRole, setMemberRole] = useState<ShareRole>("viewer");
   const [loading, setLoading] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -35,8 +39,16 @@ export default function ShareModal({ isOpen, onClose, designId }: ShareModalProp
     async function fetchDesign() {
       setLoading(true);
       try {
-        const design = await getDesignById(designId!, user?.uid);
-        if (!cancelled && design) setIsPublic(design.isPublic);
+        if (!user) return;
+        const token = await user.getIdToken();
+        const response = await fetch(`/api/designs/${designId}/share`, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await response.json() as { sharing?: { visibility: ShareVisibility; members: ShareMember[] }; error?: string };
+        if (!response.ok) throw new Error(data.error || "Failed to load share settings");
+        if (!cancelled && data.sharing) {
+          setVisibility(data.sharing.visibility);
+          setIsPublic(data.sharing.visibility === "link");
+          setMembers(data.sharing.members);
+        }
       } catch {
         if (!cancelled) toast.error("Failed to load share settings");
       } finally {
@@ -51,13 +63,72 @@ export default function ShareModal({ isOpen, onClose, designId }: ShareModalProp
     if (!designId) return;
     setToggling(true);
     try {
-      await updateDesign(designId, { isPublic: !isPublic }, user?.uid);
-      setIsPublic(!isPublic);
-      toast.success(isPublic ? "Design is now private" : "Design is now public");
-    } catch {
-      toast.error("Failed to update sharing");
+      if (!user) throw new Error("Authentication required.");
+      const nextVisibility: ShareVisibility = visibility === "link" ? "private" : "link";
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/designs/${designId}/share`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ visibility: nextVisibility, members }),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "Failed to update sharing");
+      setVisibility(nextVisibility);
+      setIsPublic(nextVisibility === "link");
+      toast.success(nextVisibility === "link" ? "Anyone with the link can view" : "Design is now private");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update sharing");
     } finally {
       setToggling(false);
+    }
+  };
+
+  const saveSpecificAccess = async () => {
+    if (!designId || !user) return;
+    const email = memberEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Enter a valid email address");
+      return;
+    }
+    const nextMembers = [...members.filter((member) => member.email !== email), { email, role: memberRole }];
+    setToggling(true);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/designs/${designId}/share`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ visibility: "specific", members: nextMembers }),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "Failed to save access");
+      setMembers(nextMembers);
+      setVisibility("specific");
+      setIsPublic(false);
+      setMemberEmail("");
+      toast.success("Specific-user access saved");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save access");
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const removeMember = async (email: string) => {
+    if (!designId || !user) return;
+    const nextMembers = members.filter((member) => member.email !== email);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/designs/${designId}/share`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ visibility: nextMembers.length ? "specific" : "private", members: nextMembers }),
+      });
+      if (!response.ok) throw new Error("Failed to remove member");
+      setMembers(nextMembers);
+      setVisibility(nextMembers.length ? "specific" : "private");
+      toast.success("Access removed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to remove member");
     }
   };
 
@@ -177,8 +248,28 @@ export default function ShareModal({ isOpen, onClose, designId }: ShareModalProp
                     </button>
                   </div>
 
+                  {visibility === "specific" && (
+                    <div className="space-y-3">
+                      <label className="text-xs font-medium uppercase tracking-wide text-slate-500">People with access</label>
+                      {members.map((member) => (
+                        <div key={member.email} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
+                          <div><p className="text-sm text-slate-700">{member.email}</p><p className="text-xs capitalize text-slate-400">{member.role}</p></div>
+                          <button type="button" onClick={() => void removeMember(member.email)} className="text-xs font-medium text-red-600 hover:text-red-700">Remove</button>
+                        </div>
+                      ))}
+                      <div className="flex gap-2">
+                        <input value={memberEmail} onChange={(event) => setMemberEmail(event.target.value)} placeholder="name@example.com" className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-500" />
+                        <select value={memberRole} onChange={(event) => setMemberRole(event.target.value as ShareRole)} className="rounded-lg border border-slate-200 px-2 text-sm">
+                          <option value="viewer">Viewer</option>
+                          <option value="editor">Editor</option>
+                        </select>
+                      </div>
+                      <button type="button" onClick={() => void saveSpecificAccess()} disabled={toggling} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Add person</button>
+                    </div>
+                  )}
+
                   {/* Share Link */}
-                  {isPublic && (
+                  {visibility === "link" && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}

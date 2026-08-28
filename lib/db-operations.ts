@@ -116,6 +116,7 @@ export async function updateDesign(
     if (updates.activePageId !== undefined) updateData.activePageId = updates.activePageId;
     if (updates.thumbnail !== undefined) updateData.thumbnail = updates.thumbnail;
     if (updates.isPublic !== undefined) updateData.isPublic = updates.isPublic;
+    if (updates.workspaceId !== undefined) updateData.workspaceId = updates.workspaceId;
     if (updates.description !== undefined) updateData.description = updates.description;
     if (updates.tags !== undefined) updateData.tags = updates.tags;
     if (updates.deletedAt !== undefined) updateData.deletedAt = updates.deletedAt;

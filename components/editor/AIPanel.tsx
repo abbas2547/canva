@@ -32,6 +32,7 @@ import {
 
 import { useEditorStore } from "@/store/editorStore";
 import { useAuth } from "@/context/AuthContext";
+import { validateAIDesignSpec, type AIDesignSpec } from "@/lib/ai-design";
 
 type Message = {
   id: number;
@@ -94,6 +95,55 @@ export default function AIPanel() {
     useEditorStore(
       (state) => state.saveHistory
     );
+
+  const generateDesign = async () => {
+    const prompt = message.trim();
+    if (!prompt || isTyping) return;
+    if (!user) {
+      addMessage("assistant", "Please sign in to generate an editable design.");
+      return;
+    }
+    const currentCanvas = useEditorStore.getState().canvas;
+    if (!currentCanvas) {
+      addMessage("assistant", "The canvas is not ready yet.");
+      return;
+    }
+    addMessage("user", `Create design: ${prompt}`);
+    setMessage("");
+    setIsTyping(true);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch("/api/ai-design", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ prompt, width: currentCanvas.getWidth(), height: currentCanvas.getHeight() }),
+      });
+      const data = await response.json().catch(() => ({})) as { spec?: unknown; error?: string };
+      if (!response.ok) throw new Error(data.error || "Design generation failed.");
+      const spec = validateAIDesignSpec(data.spec) as AIDesignSpec | null;
+      if (!spec) throw new Error("The AI returned an invalid design.");
+      if (spec.width !== currentCanvas.getWidth() || spec.height !== currentCanvas.getHeight()) {
+        useEditorStore.getState().setCanvasSize(spec.width, spec.height);
+      }
+      currentCanvas.backgroundColor = spec.background;
+      for (const element of spec.elements) {
+        if (element.type === "text") currentCanvas.add(new fabric.IText(element.text, { left: element.x, top: element.y, width: element.width, fontSize: element.fontSize, fill: element.color, fontFamily: element.fontFamily, fontWeight: element.fontWeight, textAlign: element.align }));
+        if (element.type === "rect") currentCanvas.add(new fabric.Rect({ left: element.x, top: element.y, width: element.width, height: element.height, fill: element.color, opacity: element.opacity }));
+        if (element.type === "circle") currentCanvas.add(new fabric.Ellipse({ left: element.x, top: element.y, rx: element.width / 2, ry: element.height / 2, fill: element.color, opacity: element.opacity }));
+        if (element.type === "triangle") currentCanvas.add(new fabric.Triangle({ left: element.x, top: element.y, width: element.width, height: element.height, fill: element.color, opacity: element.opacity }));
+        if (element.type === "line") currentCanvas.add(new fabric.Line([element.x, element.y, element.x2, element.y2], { stroke: element.color, strokeWidth: element.strokeWidth }));
+      }
+      currentCanvas.requestRenderAll();
+      saveHistory();
+      refreshLayers();
+      addMessage("assistant", "I created an editable design from your prompt. You can select and customize every element.");
+    } catch (error) {
+      console.error("Editable AI design request failed:", error);
+      addMessage("assistant", error instanceof Error ? error.message : "I couldn't generate that design.");
+    } finally {
+      setIsTyping(false);
+    }
+  };
 
   // ============================================================
   // STATE
@@ -1476,6 +1526,28 @@ onClick={() =>
               "
             >
               <Send size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => void generateDesign()}
+              disabled={!message.trim() || isTyping}
+              title="Generate editable design"
+              className="
+                flex
+                h-8
+                w-8
+                items-center
+                justify-center
+                rounded-lg
+                bg-indigo-600
+                text-white
+                transition
+                hover:bg-indigo-500
+                disabled:cursor-not-allowed
+                disabled:opacity-30
+              "
+            >
+              <Sparkles size={14} />
             </button>
 
           </div>

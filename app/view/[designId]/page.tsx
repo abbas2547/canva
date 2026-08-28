@@ -2,10 +2,13 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
-import { Loader2, ExternalLink, ArrowLeft, Download } from "lucide-react";
-import { getDesignById, updateDesign } from "@/lib/db-operations";
+import { Loader2, ExternalLink, ArrowLeft, Download, MessageCircle, Send, Check, Trash2 } from "lucide-react";
 import * as fabric from "fabric";
 import Link from "next/link";
+import { auth } from "@/lib/firebaseClient";
+import type { DesignComment } from "@/types/comment";
+import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
+import { db } from "@/lib/firebaseClient";
 
 interface DesignData {
   id: string;
@@ -23,6 +26,11 @@ export default function ViewDesignPage() {
   const [design, setDesign] = useState<DesignData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [canEdit, setCanEdit] = useState(false);
+  const [comments, setComments] = useState<DesignComment[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
 
@@ -31,21 +39,19 @@ export default function ViewDesignPage() {
 
     const fetchDesign = async () => {
       try {
-        const data = await getDesignById(designId);
-        if (!data) {
-          setError("Design not found");
+        const token = await auth.currentUser?.getIdToken();
+        const response = await fetch(`/api/shared-designs/${designId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const data = await response.json() as { design?: DesignData; canEdit?: boolean; error?: string };
+        if (!response.ok || !data.design) {
+          setError(response.status === 403 ? "This design is private" : data.error || "Design not found");
           return;
         }
-        if (!data.isPublic) {
-          setError("This design is private");
-          return;
-        }
-
-        setDesign(data as DesignData);
-
-        // Increment view count
-        await updateDesign(designId, { views: (data.views || 0) + 1 }).catch(() => {});
-      } catch {
+        setDesign(data.design);
+        setCanEdit(data.canEdit === true);
+      } catch (loadError) {
+        console.error("Shared design load error:", loadError);
         setError("Failed to load design");
       } finally {
         setLoading(false);
@@ -54,6 +60,71 @@ export default function ViewDesignPage() {
 
     fetchDesign();
   }, [designId]);
+
+  useEffect(() => {
+    if (!designId || !design) return;
+    const commentsQuery = query(
+      collection(db, "designs", designId, "comments"),
+      orderBy("createdAt", "asc"),
+      limit(200)
+    );
+    return onSnapshot(
+      commentsQuery,
+      (snapshot) => {
+        setComments(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as DesignComment[]);
+        setCommentsError(null);
+      },
+      (listenerError) => {
+        console.error("Comments listener error:", listenerError);
+        setCommentsError("Comments are unavailable for this design.");
+      }
+    );
+  }, [designId, design]);
+
+  const commentRequest = async (url: string, options: RequestInit = {}) => {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error("Sign in to comment on this design.");
+    const response = await fetch(url, {
+      ...options,
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(options.headers || {}) },
+    });
+    const data = await response.json() as { comment?: DesignComment; error?: string };
+    if (!response.ok) throw new Error(data.error || "Comment request failed.");
+    return data;
+  };
+
+  const addComment = async () => {
+    const text = commentText.trim();
+    if (!text || !designId) return;
+    try {
+      const data = await commentRequest(`/api/shared-designs/${designId}/comments`, { method: "POST", body: JSON.stringify({ text, parentId: replyTo }) });
+      if (data.comment) setComments((current) => [...current, data.comment as DesignComment]);
+      setCommentText("");
+      setReplyTo(null);
+    } catch (commentError) {
+      setCommentsError(commentError instanceof Error ? commentError.message : "Unable to add comment.");
+    }
+  };
+
+  const resolveComment = async (comment: DesignComment) => {
+    if (!designId) return;
+    try {
+      await commentRequest(`/api/shared-designs/${designId}/comments`, { method: "PATCH", body: JSON.stringify({ commentId: comment.id, resolved: !comment.resolved }) });
+      setComments((current) => current.map((item) => item.id === comment.id ? { ...item, resolved: !comment.resolved } : item));
+    } catch (commentError) {
+      setCommentsError(commentError instanceof Error ? commentError.message : "Unable to update comment.");
+    }
+  };
+
+  const deleteComment = async (comment: DesignComment) => {
+    if (!designId) return;
+    try {
+      await commentRequest(`/api/shared-designs/${designId}/comments?commentId=${encodeURIComponent(comment.id)}`, { method: "DELETE" });
+      setComments((current) => current.filter((item) => item.id !== comment.id && item.parentId !== comment.id));
+    } catch (commentError) {
+      setCommentsError(commentError instanceof Error ? commentError.message : "Unable to delete comment.");
+    }
+  };
 
   useEffect(() => {
     if (!design || !canvasRef.current) return;
@@ -171,13 +242,7 @@ export default function ViewDesignPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link
-              href={`/editor/${designId}`}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition"
-            >
-              <ExternalLink size={16} />
-              Edit
-            </Link>
+            {canEdit && <Link href={`/editor/${designId}`} className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition"><ExternalLink size={16} />Edit</Link>}
             <button
               onClick={handleDownload}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
@@ -194,6 +259,23 @@ export default function ViewDesignPage() {
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <canvas ref={canvasRef} />
         </div>
+        <section className="mx-auto mb-10 w-full max-w-2xl rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <MessageCircle size={18} className="text-indigo-600" />
+            <h2 className="font-semibold text-slate-900">Comments</h2>
+            <span className="text-xs text-slate-400">{comments.length}</span>
+          </div>
+          {commentsError && <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">{commentsError}</p>}
+          <div className="max-h-80 space-y-3 overflow-y-auto">
+            {comments.length === 0 ? <p className="py-4 text-sm text-slate-400">No comments yet.</p> : comments.filter((comment) => !comment.parentId).map((comment) => (
+              <div key={comment.id} className={`rounded-lg border p-3 ${comment.resolved ? "border-emerald-100 bg-emerald-50/40" : "border-slate-100 bg-slate-50"}`}>
+                <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-slate-500">{comment.authorEmail}</p><p className={`mt-1 text-sm text-slate-800 ${comment.resolved ? "line-through opacity-60" : ""}`}>{comment.text}</p></div><div className="flex shrink-0 gap-1"><button type="button" onClick={() => setReplyTo(comment.id)} className="px-2 text-xs font-medium text-indigo-600">Reply</button>{auth.currentUser?.uid === comment.authorId && <button type="button" onClick={() => void deleteComment(comment)} className="p-1 text-slate-400 hover:text-red-600" aria-label="Delete comment"><Trash2 size={14} /></button>}<button type="button" onClick={() => void resolveComment(comment)} className="p-1 text-slate-400 hover:text-emerald-600" aria-label="Resolve comment"><Check size={14} /></button></div></div>
+                {comments.filter((reply) => reply.parentId === comment.id).map((reply) => <div key={reply.id} className="ml-5 mt-3 border-l-2 border-indigo-100 pl-3"><p className="text-xs font-medium text-slate-500">{reply.authorEmail}</p><p className="mt-1 text-sm text-slate-700">{reply.text}</p></div>)}
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex items-end gap-2"><div className="min-w-0 flex-1">{replyTo && <button type="button" onClick={() => setReplyTo(null)} className="mb-1 text-xs text-slate-500">Cancel reply</button>}<textarea value={commentText} onChange={(event) => setCommentText(event.target.value)} placeholder={replyTo ? "Write a reply..." : "Add a comment..."} maxLength={1000} rows={2} className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-500" /></div><button type="button" onClick={() => void addComment()} disabled={!commentText.trim()} className="rounded-lg bg-indigo-600 p-3 text-white disabled:opacity-40" aria-label="Add comment"><Send size={16} /></button></div>
+        </section>
       </div>
     </div>
   );

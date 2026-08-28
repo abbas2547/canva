@@ -4,10 +4,21 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { Mail, LogOut, Trash2, Check, X } from "lucide-react";
+import { Mail, LogOut, Trash2, Check, X, CreditCard, Calendar, ShieldCheck, ExternalLink, Loader2 } from "lucide-react";
+import { auth } from "@/lib/firebaseClient";
+
+interface PaymentRecord {
+  orderId: string;
+  planName: string;
+  planId: string | null;
+  amount: number;
+  currency: string;
+  status: string;
+  createdAt: string | null;
+}
 
 export default function ProfilePage() {
-  const { user, loading, logout, updateProfile } = useAuth();
+  const { user, loading, logout, updateProfile, subscriptionPlan, subscriptionLoading } = useAuth();
   const router = useRouter();
 
   const [editMode, setEditMode] = useState(false);
@@ -16,6 +27,9 @@ export default function ProfilePage() {
   });
   const [saving, setSaving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [paymentsError, setPaymentsError] = useState<string | null>(null);
 
   // Redirect unauthenticated users
   useEffect(() => {
@@ -23,6 +37,31 @@ export default function ProfilePage() {
       router.replace("/login");
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    const loadPayments = async () => {
+      setPaymentsLoading(true);
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) return;
+        const response = await fetch("/api/account/payments", {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        const data = await response.json() as { payments?: PaymentRecord[]; error?: string };
+        if (!response.ok) throw new Error(data.error || "Unable to load payment history.");
+        if (!cancelled) setPayments(data.payments || []);
+      } catch (error) {
+        if (!cancelled) setPaymentsError(error instanceof Error ? error.message : "Unable to load payment history.");
+      } finally {
+        if (!cancelled) setPaymentsLoading(false);
+      }
+    };
+    void loadPayments();
+    return () => { cancelled = true; };
+  }, [user?.uid]);
 
   // Initialize form data from user on first render only
   useEffect(() => {
@@ -201,18 +240,37 @@ export default function ProfilePage() {
 
               <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                 <div>
-                  <p className="font-medium capitalize text-slate-900">Free</p>
+                  <p className="font-medium capitalize text-slate-900">{subscriptionPlan}</p>
 
                   <p className="mt-1 text-xs text-slate-500">
-                    Current account plan
+                    {subscriptionLoading ? "Refreshing subscription status..." : "Current account plan"}
                   </p>
                 </div>
 
-                <span className="rounded-full bg-slate-600/50 px-3 py-1 text-xs font-medium text-slate-300">
-                  Free
+                <span className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${subscriptionPlan === "business" ? "bg-amber-100 text-amber-700" : subscriptionPlan === "pro" ? "bg-indigo-100 text-indigo-700" : "bg-slate-200 text-slate-600"}`}>
+                  {subscriptionPlan}
                 </span>
               </div>
+              <button type="button" onClick={() => router.push("/pricing")} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700">
+                {subscriptionPlan === "free" ? "Upgrade plan" : "Manage subscription"} <ExternalLink className="h-4 w-4" />
+              </button>
             </div>
+          </div>
+
+          <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100"><CreditCard className="text-indigo-600" size={20} /></div>
+              <div><h2 className="text-xl font-bold text-slate-950">Payments</h2><p className="text-sm text-slate-500">Trusted payment records for your account.</p></div>
+            </div>
+            {paymentsLoading ? <div className="flex justify-center py-8"><Loader2 className="animate-spin text-indigo-600" size={24} /></div> : paymentsError ? <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{paymentsError}</p> : payments.length === 0 ? <div className="rounded-xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">No payment history yet.</div> : <div className="overflow-x-auto"><table className="w-full min-w-[560px] text-left text-sm"><thead><tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400"><th className="pb-3 pr-4">Date</th><th className="pb-3 pr-4">Plan</th><th className="pb-3 pr-4">Order ID</th><th className="pb-3 text-right">Amount</th><th className="pb-3 text-right">Status</th></tr></thead><tbody>{payments.map((payment) => <tr key={payment.orderId} className="border-b border-slate-50 last:border-0"><td className="py-3 pr-4 text-slate-600">{payment.createdAt ? new Date(payment.createdAt).toLocaleDateString() : "—"}</td><td className="py-3 pr-4 font-medium capitalize text-slate-800">{payment.planName}</td><td className="max-w-[180px] truncate py-3 pr-4 font-mono text-xs text-slate-500">{payment.orderId}</td><td className="py-3 text-right text-slate-700">{payment.currency} {payment.amount.toLocaleString()}</td><td className="py-3 text-right"><span className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${payment.status === "active" ? "bg-emerald-100 text-emerald-700" : payment.status === "failed" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>{payment.status}</span></td></tr>)}</tbody></table></div>}
+          </div>
+
+          <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100"><ShieldCheck className="text-emerald-600" size={20} /></div>
+              <div><h2 className="text-xl font-bold text-slate-950">Subscription status</h2><p className="text-sm text-slate-500">{subscriptionPlan === "free" ? "You are currently using the free plan." : "Your subscription is active through verified payment records."}</p></div>
+            </div>
+            {payments.find((payment) => payment.status === "active")?.createdAt && <p className="mt-4 flex items-center gap-2 text-xs text-slate-500"><Calendar size={14} /> Last successful payment: {new Date(payments.find((payment) => payment.status === "active")!.createdAt!).toLocaleDateString()}</p>}
           </div>
         </div>
 

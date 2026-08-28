@@ -59,6 +59,10 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 async function resolveAccess(firebaseUser: User): Promise<{ role: UserRole; plan: SubscriptionPlan }> {
   if (checkAdminAccess(firebaseUser.email)) return { role: "admin", plan: "business" };
 
@@ -254,7 +258,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const loginWithEmail = useCallback(async (email: string, password: string) => {
     setError(null);
-    const result = await signInWithEmailAndPassword(auth, email, password);
+    const result = await signInWithEmailAndPassword(auth, normalizeEmail(email), password);
     void writeAuthEvent(result.user, "LOGIN").catch((eventError) =>
       console.error("Login event sync error:", eventError)
     );
@@ -263,11 +267,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signUpWithEmail = useCallback(
     async (email: string, password: string, displayName: string) => {
       setError(null);
-      const result = await createUserWithEmailAndPassword(auth, email, password);
+      const normalizedEmail = normalizeEmail(email);
+      const result = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
       await firebaseUpdateProfile(result.user, { displayName });
       await setDoc(doc(db, "users", result.user.uid), {
         uid: result.user.uid,
-        email,
+        email: normalizedEmail,
         displayName,
         role: "user",
         createdAt: new Date().toISOString(),
@@ -301,7 +306,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const resetPassword = useCallback(async (email: string) => {
     setError(null);
-    await sendPasswordResetEmail(auth, email);
+    await sendPasswordResetEmail(auth, normalizeEmail(email));
   }, []);
 
   const updateProfile = useCallback(

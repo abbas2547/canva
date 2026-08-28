@@ -16,6 +16,11 @@ export interface DesignDocument {
   height: number;
   templateId: string | null;
   isPublic: boolean;
+  workspaceId?: string | null;
+  sharing?: {
+    visibility: "private" | "link" | "specific";
+    members: { email: string; role: "editor" | "viewer" }[];
+  };
   downloads: number;
   views: number;
   likes: number;

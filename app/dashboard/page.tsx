@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   getUserDesigns,
+  getUserProfile,
   createDesign,
   deleteDesign,
   createOrUpdateUserProfile,
@@ -37,6 +38,11 @@ import {
   RotateCcw,
   FileText,
   LayoutTemplate,
+  Users,
+  BarChart3,
+  Sparkles,
+  HardDrive,
+  Crown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
@@ -62,7 +68,7 @@ interface Design {
 }
 
 export default function Dashboard() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, subscriptionPlan } = useAuth();
   const router = useRouter();
   const [designs, setDesigns] = useState<Design[]>([]);
   const [filteredDesigns, setFilteredDesigns] = useState<Design[]>([]);
@@ -78,6 +84,11 @@ export default function Dashboard() {
   const [showDesignMenu, setShowDesignMenu] = useState<string | null>(null);
   const [designToDelete, setDesignToDelete] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [usage, setUsage] = useState({
+    aiCreditsUsed: 0,
+    aiCreditsLimit: 10,
+    storageUsed: 0,
+  });
 
   const createMenuRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -101,9 +112,19 @@ export default function Dashboard() {
   const fetchDesigns = useCallback(async () => {
     if (!user?.uid) return;
     try {
-      const userDesigns = await getUserDesigns(user.uid);
+      const [userDesigns, profile] = await Promise.all([
+        getUserDesigns(user.uid),
+        getUserProfile(user.uid),
+      ]);
       setDesigns(userDesigns);
       setFilteredDesigns(userDesigns);
+      if (profile) {
+        setUsage({
+          aiCreditsUsed: Math.max(0, Number(profile.aiCreditsUsed) || 0),
+          aiCreditsLimit: Math.max(1, Number(profile.aiCreditsLimit) || 10),
+          storageUsed: Math.max(0, Number(profile.storageUsed) || 0),
+        });
+      }
     } catch (error) {
       console.error("Error fetching designs:", error);
       toast.error("Failed to load designs");
@@ -111,6 +132,18 @@ export default function Dashboard() {
       setFetching(false);
     }
   }, [user?.uid]);
+
+  const designsThisMonth = designs.filter((design) => {
+    const date = new Date(design.createdAt);
+    const now = new Date();
+    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && !design.deletedAt;
+  }).length;
+
+  const formatStorage = (bytes: number) => {
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  };
 
   useEffect(() => {
     fetchDesigns();
@@ -308,6 +341,14 @@ export default function Dashboard() {
                 >
                   <Star className="w-4 h-4 inline mr-1" /> Brand Kit
                 </button>
+                {subscriptionPlan === "business" && (
+                  <button
+                    onClick={() => router.push("/workspace")}
+                    className="px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
+                  >
+                    <Users className="w-4 h-4 inline mr-1" /> Workspace
+                  </button>
+                )}
               </div>
             </div>
 
@@ -473,6 +514,66 @@ export default function Dashboard() {
               </button>
             </div>
           </motion.div>
+        )}
+
+        {!fetching && filterOption !== "trashed" && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="mb-8"
+            aria-label="Workspace usage"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Workspace overview</h2>
+                <p className="mt-0.5 text-sm text-slate-500">Your current plan and usage at a glance.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push("/pricing")}
+                className="hidden items-center gap-1.5 text-sm font-medium text-indigo-600 transition hover:text-indigo-700 sm:flex"
+              >
+                Manage plan <Crown size={15} />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-500">Total designs</span>
+                  <span className="rounded-xl bg-indigo-50 p-2 text-indigo-600"><BarChart3 size={18} /></span>
+                </div>
+                <p className="mt-4 text-2xl font-bold text-slate-900">{designs.filter((design) => !design.deletedAt).length}</p>
+                <p className="mt-1 text-xs text-slate-400">Saved in your workspace</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-500">Created this month</span>
+                  <span className="rounded-xl bg-emerald-50 p-2 text-emerald-600"><Calendar size={18} /></span>
+                </div>
+                <p className="mt-4 text-2xl font-bold text-slate-900">{designsThisMonth}</p>
+                <p className="mt-1 text-xs text-slate-400">New designs this month</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-500">AI usage</span>
+                  <span className="rounded-xl bg-purple-50 p-2 text-purple-600"><Sparkles size={18} /></span>
+                </div>
+                <p className="mt-4 text-2xl font-bold text-slate-900">{usage.aiCreditsUsed}<span className="text-base font-medium text-slate-400">/{usage.aiCreditsLimit}</span></p>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-purple-500 transition-all" style={{ width: `${Math.min(100, (usage.aiCreditsUsed / usage.aiCreditsLimit) * 100)}%` }} />
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-500">Plan & storage</span>
+                  <span className="rounded-xl bg-amber-50 p-2 text-amber-600"><HardDrive size={18} /></span>
+                </div>
+                <p className="mt-4 text-2xl font-bold capitalize text-slate-900">{subscriptionPlan}</p>
+                <p className="mt-1 text-xs text-slate-400">{formatStorage(usage.storageUsed)} used</p>
+              </div>
+            </div>
+          </motion.section>
         )}
 
         {/* Header */}

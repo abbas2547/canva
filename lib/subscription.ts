@@ -60,3 +60,9 @@ export function getRequiredPlan(feature: SubscriptionFeature): Exclude<Subscript
   if (PLAN_FEATURES.pro.includes(feature)) return "pro";
   return "business";
 }
+
+export function getTemplateLimit(plan: SubscriptionPlan): number {
+  if (plan === "business") return Number.POSITIVE_INFINITY;
+  if (plan === "pro") return 24;
+  return 8;
+}

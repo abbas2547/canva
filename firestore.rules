@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function owner(resource) {
+      return signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    function workspaceMember(workspaceId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/workspaces/$(workspaceId))
+        && request.auth.uid in get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.memberIds;
+    }
+
+    function specificMember(resource) {
+      return signedIn()
+        && resource.data.get("sharing", {}).get("visibility", "private") == "specific"
+        && request.auth.token.email in resource.data.get("sharing", {}).get("memberEmails", []);
+    }
+
+    match /users/{userId} {
+      allow read, write: if signedIn() && request.auth.uid == userId;
+    }
+
+    match /designs/{designId} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if signedIn()
+        && (resource.data.userId == request.auth.uid
+          || (resource.data.get("workspaceId", null) != null && workspaceMember(resource.data.get("workspaceId", null)))
+          || specificMember(resource)
+          || resource.data.isPublic == true);
+      allow update: if signedIn()
+        && (resource.data.userId == request.auth.uid
+          || (resource.data.get("workspaceId", null) != null && workspaceMember(resource.data.get("workspaceId", null))
+            && request.resource.data.userId == resource.data.userId));
+      allow delete: if owner(resource);
+
+      match /comments/{commentId} {
+        allow read: if get(/databases/$(database)/documents/designs/$(designId)).data.isPublic == true
+          || (signedIn() && (
+            get(/databases/$(database)/documents/designs/$(designId)).data.userId == request.auth.uid
+            || (get(/databases/$(database)/documents/designs/$(designId)).data.get("workspaceId", null) != null
+                && workspaceMember(get(/databases/$(database)/documents/designs/$(designId)).data.get("workspaceId", null)))
+              || specificMember(get(/databases/$(database)/documents/designs/$(designId)))
+          ));
+        allow create: if signedIn()
+          && request.resource.data.authorId == request.auth.uid
+          && (get(/databases/$(database)/documents/designs/$(designId)).data.isPublic == true
+            || get(/databases/$(database)/documents/designs/$(designId)).data.userId == request.auth.uid
+            || (get(/databases/$(database)/documents/designs/$(designId)).data.get("workspaceId", null) != null
+              && workspaceMember(get(/databases/$(database)/documents/designs/$(designId)).data.get("workspaceId", null)))
+            || specificMember(get(/databases/$(database)/documents/designs/$(designId))));
+        allow update, delete: if signedIn()
+          && (resource.data.authorId == request.auth.uid
+            || get(/databases/$(database)/documents/designs/$(designId)).data.userId == request.auth.uid);
+      }
+    }
+
+    match /workspaces/{workspaceId} {
+      allow read: if workspaceMember(workspaceId);
+      allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.ownerId == request.auth.uid;
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /payments/{paymentId} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /users/{userId}/brandKits/{kitId} {
+      allow read, write: if signedIn() && userId == request.auth.uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, LayoutGrid, Star, Sparkles } from "lucide-react";
-import { templateCategories, searchTemplates, type TemplateItem, type TemplateCategory } from "@/data/templates";
+import { Search, LayoutGrid, Sparkles } from "lucide-react";
+import { templateCategories, searchTemplates, type TemplateItem } from "@/data/templates";
 import { useEditorStore } from "@/store/editorStore";
 import * as fabric from "fabric";
+import { useAuth } from "@/context/AuthContext";
+import { getTemplateLimit } from "@/lib/subscription";
+import toast from "react-hot-toast";
 
 const categoryIcons: Record<string, string> = {
   "social-media": "📱",
@@ -22,11 +25,16 @@ const categoryIcons: Record<string, string> = {
 export default function TemplatesPanel() {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const canvas = useEditorStore((s) => s.canvas);
+  const { user, subscriptionPlan } = useAuth();
   const canvasWidth = useEditorStore((s) => s.canvasWidth);
   const canvasHeight = useEditorStore((s) => s.canvasHeight);
   const saveHistory = useEditorStore((s) => s.saveHistory);
   const refreshLayers = useEditorStore((s) => s.refreshLayers);
+  const templateLimit = getTemplateLimit(subscriptionPlan);
+  const templateIndex = useMemo(
+    () => new Map(templateCategories.flatMap((category) => category.templates).map((item, index) => [item.id, index])),
+    []
+  );
 
   const filteredCategories = useMemo(() => {
     if (search) {
@@ -49,11 +57,37 @@ export default function TemplatesPanel() {
     return templateCategories;
   }, [search, selectedCategory]);
 
-  const handleApplyTemplate = (template: TemplateItem) => {
-    if (!canvas) return;
+  const handleApplyTemplate = async (template: TemplateItem) => {
+    const currentCanvas = useEditorStore.getState().canvas;
+    if (!currentCanvas) return;
+    if (!user) {
+      toast.error("Please sign in to use templates.");
+      return;
+    }
+    if ((templateIndex.get(template.id) ?? Number.MAX_SAFE_INTEGER) >= templateLimit) {
+      toast.error("Upgrade your plan to use this template.");
+      return;
+    }
+    const token = await user.getIdToken();
+    const authorization = await fetch("/api/templates/authorize", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ templateId: template.id }),
+    });
+    const result = (await authorization.json()) as { success?: boolean; error?: string };
+    if (!authorization.ok || !result.success) {
+      toast.error(result.error || "This template is not available on your plan.");
+      return;
+    }
+    if (currentCanvas.getObjects().length > 0 && !window.confirm("Replace the current design with this template?")) {
+      return;
+    }
 
-    canvas.clear();
-    canvas.backgroundColor = "#ffffff";
+    currentCanvas.clear();
+    currentCanvas.set({ backgroundColor: "#ffffff" });
 
     const scaleX = canvasWidth / template.width;
     const scaleY = canvasHeight / template.height;
@@ -94,21 +128,24 @@ export default function TemplatesPanel() {
             ...baseProps,
             fontSize: (obj.fontSize || 24) * scale,
             fontFamily: obj.fontFamily || "Arial",
-            fontWeight: obj.fontWeight as any || "normal",
-            fontStyle: obj.fontStyle as any || "normal",
-            textAlign: obj.textAlign as any || "left",
+            fontWeight: obj.fontWeight === "bold" ? "bold" : "normal",
+            fontStyle: obj.fontStyle === "italic" ? "italic" : "normal",
+            textAlign:
+              obj.textAlign === "center" || obj.textAlign === "right" || obj.textAlign === "justify"
+                ? obj.textAlign
+                : "left",
             fill: obj.fill || "#000000",
           });
           break;
       }
 
       if (fabricObj) {
-        canvas.add(fabricObj);
+        currentCanvas.add(fabricObj);
       }
     });
 
-    canvas.discardActiveObject();
-    canvas.requestRenderAll();
+    currentCanvas.discardActiveObject();
+    currentCanvas.requestRenderAll();
     refreshLayers();
     saveHistory();
   };
@@ -185,6 +222,7 @@ export default function TemplatesPanel() {
                   key={template.id}
                   template={template}
                   onApply={handleApplyTemplate}
+                  locked={(templateIndex.get(template.id) ?? Number.MAX_SAFE_INTEGER) >= templateLimit}
                 />
               ))}
             </div>
@@ -206,9 +244,11 @@ export default function TemplatesPanel() {
 function TemplateCard({
   template,
   onApply,
+  locked,
 }: {
   template: TemplateItem;
-  onApply: (t: TemplateItem) => void;
+  onApply: (t: TemplateItem) => void | Promise<void>;
+  locked: boolean;
 }) {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -276,7 +316,9 @@ function TemplateCard({
                     top: `${(obj.top || 0) * previewScale + 8}px`,
                     color: obj.fill || "#000",
                     fontFamily: obj.fontFamily || "Arial",
-                    textAlign: (obj.textAlign as any) || "left",
+                    textAlign: obj.textAlign === "center" || obj.textAlign === "right" || obj.textAlign === "justify"
+                      ? obj.textAlign
+                      : "left",
                   }}
                 >
                   {obj.text?.split("\n")[0]}
@@ -291,7 +333,7 @@ function TemplateCard({
         {isHovered && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-sm transition">
             <div className="bg-white rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-lg">
-              Use Template
+              {locked ? "Upgrade to use" : "Use Template"}
             </div>
           </div>
         )}
@@ -303,6 +345,7 @@ function TemplateCard({
         </p>
         <p className="text-[10px] text-slate-400 mt-0.5">
           {template.width} × {template.height}
+          {locked && <span className="ml-1 text-indigo-500">· Pro</span>}
         </p>
       </div>
     </button>

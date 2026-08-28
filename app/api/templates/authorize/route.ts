@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminServices } from "@/lib/firebase-admin";
 import { getAllTemplates } from "@/data/templates";
-import { normalizeSubscriptionPlan, getTemplateLimit } from "@/lib/subscription";
+import { getEffectiveSubscription, getTemplateLimit } from "@/lib/subscription";
 import { verifyPaymentUser } from "@/lib/payment-auth";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
     const { adminDb } = getAdminServices();
     const userSnapshot = await adminDb.collection("users").doc(user.uid).get();
-    const plan = normalizeSubscriptionPlan(userSnapshot.data()?.subscriptionPlan);
+    const plan = getEffectiveSubscription(userSnapshot.data() || {}).effectivePlan;
     if (templateIndex >= getTemplateLimit(plan)) {
       return NextResponse.json(
         { success: false, error: "Upgrade your plan to use this template." },

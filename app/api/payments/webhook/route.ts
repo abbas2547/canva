@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { getAdminServices } from "@/lib/firebase-admin";
 import { getCashfreeSecretKey, PAID_PLANS, PaidPlanId } from "@/lib/cashfree";
+import { SUBSCRIPTION_PERIOD_MS } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +78,8 @@ export async function POST(request: Request) {
         planId?: PaidPlanId;
         amount?: number;
         status?: string;
+        subscriptionStartedAt?: string;
+        subscriptionExpiresAt?: string;
       };
       const plan = payment.planId ? PAID_PLANS[payment.planId] : undefined;
       const webhookAmount = payload.data?.order?.order_amount;
@@ -89,15 +92,27 @@ export async function POST(request: Request) {
         return;
       }
 
+      const startedAt = mappedStatus === "active"
+        ? (payment.subscriptionStartedAt ? new Date(payment.subscriptionStartedAt) : new Date())
+        : null;
+      const expiresAt = startedAt
+        ? (payment.subscriptionExpiresAt
+          ? new Date(payment.subscriptionExpiresAt)
+          : new Date(startedAt.getTime() + SUBSCRIPTION_PERIOD_MS))
+        : null;
+
       if (payment.status !== "active" && mappedStatus === "active") {
+        if (!startedAt || !expiresAt) return;
         transaction.set(
           userRefById(payment.userId),
           {
             role: "premium",
             subscriptionPlan: plan.id,
             subscriptionStatus: "active",
-            subscriptionStartDate: new Date().toISOString(),
-            subscriptionEndDate: null,
+            subscriptionStartDate: startedAt.toISOString(),
+            subscriptionEndDate: expiresAt.toISOString(),
+            subscriptionStartedAt: startedAt.toISOString(),
+            subscriptionExpiresAt: expiresAt.toISOString(),
             paymentOrderId: orderId,
             updatedAt: new Date().toISOString(),
           },
@@ -112,6 +127,12 @@ export async function POST(request: Request) {
             status: mappedStatus,
             paymentReference: payload.data?.payment?.cf_payment_id || null,
             webhookType: payload.type || null,
+            ...(mappedStatus === "active" && startedAt && expiresAt
+              ? {
+                  subscriptionStartedAt: startedAt.toISOString(),
+                  subscriptionExpiresAt: expiresAt.toISOString(),
+                }
+              : {}),
             updatedAt: new Date().toISOString(),
           },
           { merge: true }

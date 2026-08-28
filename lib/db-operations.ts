@@ -255,7 +255,7 @@ export async function createOrUpdateUserProfile(userId: string, data: Partial<Us
         ...data,
         updatedAt: now,
       };
-      await setDoc(userRef, updates);
+      await setDoc(userRef, updates, { merge: true });
       const updated = await getDoc(userRef);
       return { id: updated.id, ...updated.data() } as UserDocument;
     }

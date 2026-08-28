@@ -27,7 +27,7 @@ import { checkAdminAccess } from "@/lib/admin";
 import { deleteDoc, doc, getDoc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebaseClient";
 import {
-  normalizeSubscriptionPlan,
+  getEffectiveSubscription,
   type SubscriptionPlan,
 } from "@/lib/subscription";
 
@@ -39,6 +39,8 @@ interface AuthContextValue {
   subscriptionLoading: boolean;
   role: UserRole;
   subscriptionPlan: SubscriptionPlan;
+  subscriptionDaysRemaining: number;
+  subscriptionExpiresAt: Date | null;
   error: string | null;
   signUpWithEmail: (
     email: string,
@@ -63,25 +65,25 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-async function resolveAccess(firebaseUser: User): Promise<{ role: UserRole; plan: SubscriptionPlan }> {
-  if (checkAdminAccess(firebaseUser.email)) return { role: "admin", plan: "business" };
+async function resolveAccess(firebaseUser: User): Promise<{ role: UserRole; plan: SubscriptionPlan; daysRemaining: number; expiresAt: Date | null }> {
+  if (checkAdminAccess(firebaseUser.email)) return { role: "admin", plan: "business", daysRemaining: 0, expiresAt: null };
 
   try {
     const usersSnap = await getDoc(doc(db, "users", firebaseUser.uid));
     if (usersSnap.exists()) {
       const data = usersSnap.data();
-      const plan = normalizeSubscriptionPlan(data.subscriptionPlan);
-      if (data.role === "admin") return { role: "admin", plan };
-      if (data.role === "premium" || (plan !== "free" && data.subscriptionStatus === "active")) {
-        return { role: "premium", plan };
+      const access = getEffectiveSubscription(data);
+      if (data.role === "admin") return { role: "admin", plan: access.effectivePlan, daysRemaining: access.daysRemaining, expiresAt: access.expiresAt };
+      if (access.isActive) {
+        return { role: "premium", plan: access.effectivePlan, daysRemaining: access.daysRemaining, expiresAt: access.expiresAt };
       }
-      return { role: "user", plan };
+      return { role: "user", plan: "free", daysRemaining: 0, expiresAt: access.expiresAt };
     }
   } catch {
     // Fall back to default role
   }
 
-  return { role: "user", plan: "free" };
+  return { role: "user", plan: "free", daysRemaining: 0, expiresAt: null };
 }
 
 async function syncAuthCookies(
@@ -131,6 +133,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [role, setRole] = useState<UserRole>("user");
   const [subscriptionPlan, setSubscriptionPlan] = useState<SubscriptionPlan>("free");
+  const [subscriptionDaysRemaining, setSubscriptionDaysRemaining] = useState(0);
+  const [subscriptionExpiresAt, setSubscriptionExpiresAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const activeUserIdRef = useRef<string | null>(null);
 
@@ -149,6 +153,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const access = await resolveAccess(firebaseUser);
           setRole(access.role);
           setSubscriptionPlan(access.plan);
+          setSubscriptionDaysRemaining(access.daysRemaining);
+          setSubscriptionExpiresAt(access.expiresAt);
           setUser(firebaseUser);
           void setActiveUser(firebaseUser).catch((presenceError) =>
             console.error("Active user sync error:", presenceError)
@@ -166,6 +172,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUser(null);
           setRole("user");
           setSubscriptionPlan("free");
+          setSubscriptionDaysRemaining(0);
+          setSubscriptionExpiresAt(null);
           if (activeUserId) {
             void removeActiveUser(activeUserId).catch((presenceError) =>
               console.error("Active user removal error:", presenceError)
@@ -179,6 +187,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(firebaseUser);
         setRole("user");
         setSubscriptionPlan("free");
+        setSubscriptionDaysRemaining(0);
+        setSubscriptionExpiresAt(null);
       } finally {
         setSubscriptionLoading(false);
         setLoading(false);
@@ -197,10 +207,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       doc(db, "users", user.uid),
       (snapshot) => {
         const data = snapshot.data();
-        const plan = normalizeSubscriptionPlan(data?.subscriptionPlan);
-        setSubscriptionPlan(plan);
+        const access = getEffectiveSubscription(data || {});
+        setSubscriptionPlan(access.effectivePlan);
+        setSubscriptionDaysRemaining(access.daysRemaining);
+        setSubscriptionExpiresAt(access.expiresAt);
         if (!checkAdminAccess(user.email)) {
-          setRole(data?.role === "premium" || plan !== "free" ? "premium" : "user");
+          setRole(access.isActive ? "premium" : "user");
         }
       },
       (error) => {
@@ -208,6 +220,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
   }, [user?.uid, user?.email]);
+
+  useEffect(() => {
+    if (!subscriptionExpiresAt) return;
+    const refresh = () => {
+      const access = getEffectiveSubscription({
+        subscriptionPlan,
+        subscriptionStatus: "active",
+        subscriptionExpiresAt,
+      });
+      setSubscriptionDaysRemaining(access.daysRemaining);
+      if (!access.isActive && subscriptionPlan !== "free") {
+        setSubscriptionPlan("free");
+        setRole("user");
+      }
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 60_000);
+    return () => window.clearInterval(timer);
+  }, [subscriptionExpiresAt, subscriptionPlan]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -338,6 +369,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       subscriptionLoading,
       role,
       subscriptionPlan,
+      subscriptionDaysRemaining,
+      subscriptionExpiresAt,
       error,
       signUpWithEmail,
       loginWithEmail,
@@ -354,6 +387,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       subscriptionLoading,
       role,
       subscriptionPlan,
+      subscriptionDaysRemaining,
+      subscriptionExpiresAt,
       error,
       signUpWithEmail,
       loginWithEmail,

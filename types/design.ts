@@ -38,7 +38,10 @@ export interface UserDocument {
   aiCreditsUsed: number;
   aiCreditsLimit: number;
   storageUsed: number;
-  subscriptionPlan: "free" | "pro" | "enterprise";
+  subscriptionPlan: "free" | "pro" | "business";
+  subscriptionStatus?: "active" | "inactive" | "cancelled";
+  subscriptionStartedAt?: string;
+  subscriptionExpiresAt?: string;
   createdAt: string;
   updatedAt: string;
 }

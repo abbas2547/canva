@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyPaymentUser } from "@/lib/payment-auth";
 import { getAdminServices } from "@/lib/firebase-admin";
-import { hasFeature, normalizeSubscriptionPlan } from "@/lib/subscription";
+import { getEffectiveSubscription, hasFeature } from "@/lib/subscription";
 
 const SYSTEM_PROMPT = `You are Mini Canva AI, a professional graphic design assistant.
 Give practical, concise advice about layouts, typography, colors, branding, image editing, and social media design.
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
 
     const { adminDb } = getAdminServices();
     const userSnapshot = await adminDb.collection("users").doc(firebaseUser.uid).get();
-    const plan = normalizeSubscriptionPlan(userSnapshot.data()?.subscriptionPlan);
+    const plan = getEffectiveSubscription(userSnapshot.data() || {}).effectivePlan;
     if (!hasFeature(plan, "premiumAIFeatures")) {
       return NextResponse.json(
         { error: "Premium AI features are available on the Pro plan.", code: "UPGRADE_REQUIRED", requiredPlan: "pro" },

@@ -22,7 +22,19 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read, write: if signedIn() && request.auth.uid == userId;
+      allow read: if signedIn() && request.auth.uid == userId;
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.get("subscriptionPlan", "free") == "free"
+        && request.resource.data.get("subscriptionStatus", "inactive") != "active";
+      allow update: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.get("subscriptionPlan", null) == resource.data.get("subscriptionPlan", null)
+        && request.resource.data.get("subscriptionStatus", null) == resource.data.get("subscriptionStatus", null)
+        && request.resource.data.get("subscriptionStartedAt", null) == resource.data.get("subscriptionStartedAt", null)
+        && request.resource.data.get("subscriptionExpiresAt", null) == resource.data.get("subscriptionExpiresAt", null)
+        && request.resource.data.get("subscriptionStartDate", null) == resource.data.get("subscriptionStartDate", null)
+        && request.resource.data.get("subscriptionEndDate", null) == resource.data.get("subscriptionEndDate", null);
     }
 
     match /designs/{designId} {

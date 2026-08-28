@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminServices } from "@/lib/firebase-admin";
 import { verifyPaymentUser } from "@/lib/payment-auth";
-import { normalizeSubscriptionPlan } from "@/lib/subscription";
+import { getEffectiveSubscription } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const user = await verifyPaymentUser(request);
     const { adminDb } = getAdminServices();
     const snapshot = await adminDb.collection("users").doc(user.uid).get();
-    const plan = normalizeSubscriptionPlan(snapshot.data()?.subscriptionPlan);
+    const plan = getEffectiveSubscription(snapshot.data() || {}).effectivePlan;
     if (plan === "free") {
       return NextResponse.json(
         { success: false, error: "Magic Resize is available on Pro and Business plans." },

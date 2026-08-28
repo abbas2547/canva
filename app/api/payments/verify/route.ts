@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminServices } from "@/lib/firebase-admin";
 import { getCashfreeBaseUrl, getCashfreeHeaders, PAID_PLANS, PaidPlanId } from "@/lib/cashfree";
 import { verifyPaymentUser } from "@/lib/payment-auth";
+import { SUBSCRIPTION_PERIOD_MS } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
@@ -28,20 +29,36 @@ async function activatePayment(
       throw new Error("PAYMENT_NOT_FOUND");
     }
 
-    if (paymentStatus === "active" && payment.status !== "active") {
-      transaction.set(
-        userRef,
+    if (paymentStatus === "active") {
+    const paymentData = paymentSnapshot.data() as {
+      subscriptionStartedAt?: string;
+      subscriptionExpiresAt?: string;
+    };
+    const startedAt = paymentData.subscriptionStartedAt
+      ? new Date(paymentData.subscriptionStartedAt)
+      : new Date();
+    const expiresAt = paymentData.subscriptionExpiresAt
+      ? new Date(paymentData.subscriptionExpiresAt)
+      : new Date(startedAt.getTime() + SUBSCRIPTION_PERIOD_MS);
+    transaction.set(
+      userRef,
         {
           role: "premium",
           subscriptionPlan: payment.planId,
           subscriptionStatus: "active",
-          subscriptionStartDate: new Date().toISOString(),
-          subscriptionEndDate: null,
+          subscriptionStartDate: startedAt.toISOString(),
+          subscriptionEndDate: expiresAt.toISOString(),
+          subscriptionStartedAt: startedAt.toISOString(),
+          subscriptionExpiresAt: expiresAt.toISOString(),
           paymentOrderId: orderId,
           updatedAt: new Date().toISOString(),
         },
         { merge: true }
       );
+      transaction.set(paymentRef, {
+        subscriptionStartedAt: startedAt.toISOString(),
+        subscriptionExpiresAt: expiresAt.toISOString(),
+      }, { merge: true });
     }
 
     transaction.set(

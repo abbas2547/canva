@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminServices } from "@/lib/firebase-admin";
 import { verifyPaymentUser } from "@/lib/payment-auth";
-import { hasFeature, normalizeSubscriptionPlan } from "@/lib/subscription";
+import { getEffectiveSubscription, hasFeature } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const user = await verifyPaymentUser(request);
     const { adminDb } = getAdminServices();
     const userSnapshot = await adminDb.collection("users").doc(user.uid).get();
-    const plan = normalizeSubscriptionPlan(userSnapshot.data()?.subscriptionPlan);
+    const plan = getEffectiveSubscription(userSnapshot.data() || {}).effectivePlan;
     if (!hasFeature(plan, "teamWorkspace")) return NextResponse.json({ error: "Team workspaces are available on the Business plan.", code: "UPGRADE_REQUIRED" }, { status: 403 });
     const body = await request.json() as { name?: unknown };
     const name = typeof body.name === "string" ? body.name.trim() : "";

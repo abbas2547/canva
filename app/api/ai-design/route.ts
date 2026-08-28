@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminServices } from "@/lib/firebase-admin";
 import { verifyPaymentUser } from "@/lib/payment-auth";
-import { normalizeSubscriptionPlan } from "@/lib/subscription";
+import { getEffectiveSubscription } from "@/lib/subscription";
 import { validateAIDesignSpec } from "@/lib/ai-design";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     const reservation = await adminDb.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(userRef);
       const data = snapshot.data() || {};
-      const plan = normalizeSubscriptionPlan(data.subscriptionPlan);
+      const plan = getEffectiveSubscription(data).effectivePlan;
       const used = Number(data.aiCreditsUsed) || 0;
       const limit = LIMITS[plan];
       if (used >= limit) return { allowed: false, plan, used, limit };

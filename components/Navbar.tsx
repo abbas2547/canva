@@ -26,9 +26,21 @@ export default function Navbar() {
     logout,
     role,
     subscriptionPlan,
+    subscriptionDaysRemaining,
     subscriptionLoading,
     loading,
   } = useAuth();
+
+  const planLabel =
+    subscriptionPlan === "business"
+      ? "Business 💎"
+      : subscriptionPlan === "pro"
+        ? "Pro ⭐"
+        : "Basic";
+  const remainingLabel =
+    subscriptionPlan !== "free" && subscriptionDaysRemaining > 0
+      ? ` · ${subscriptionDaysRemaining} day${subscriptionDaysRemaining === 1 ? "" : "s"} remaining`
+      : "";
 
   const router =
     useRouter();
@@ -241,7 +253,7 @@ export default function Navbar() {
                   href="/pricing"
                   className="hidden lg:inline-flex items-center rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-indigo-700 transition hover:bg-indigo-100"
                 >
-                  Current Plan: {subscriptionPlan}
+                  Current Plan: {planLabel}{remainingLabel}
                 </Link>
               )}
             <div
@@ -523,7 +535,7 @@ export default function Navbar() {
                   setMenuOpen(false)
                 }
               >
-                {subscriptionPlan === "free" ? "✨ Upgrade Plan" : `Current Plan: ${subscriptionPlan}`}
+                {subscriptionPlan === "free" ? "✨ Upgrade Plan" : `Current Plan: ${planLabel}${remainingLabel}`}
               </Link>
 
               <Link

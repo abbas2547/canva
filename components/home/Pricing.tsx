@@ -4,7 +4,7 @@ export default function Pricing() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-16 text-center">
           <h2 className="text-5xl font-black">
-            Pricing
+            pricing
           </h2>
         </div>
 

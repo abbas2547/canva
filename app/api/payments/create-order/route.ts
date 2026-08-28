@@ -82,20 +82,8 @@ export async function POST(request: Request) {
       (!isLocalOrigin
         ? `${origin}/pricing?payment=complete&order_id=${encodeURIComponent(orderId)}`
         : undefined);
-    const configuredNotifyUrl = process.env.CASHFREE_WEBHOOK_URL?.trim();
-    const notifyUrl =
-      configuredNotifyUrl && configuredNotifyUrl.endsWith("/api/payments/webhook")
-        ? configuredNotifyUrl
-        : !isLocalOrigin
-          ? `${origin}/api/payments/webhook`
-          : undefined;
-    const orderMeta =
-      returnUrl || notifyUrl
-        ? {
-            ...(returnUrl ? { return_url: returnUrl } : {}),
-            ...(notifyUrl ? { notify_url: notifyUrl } : {}),
-          }
-        : undefined;
+    // Cashfree API version 2023-08-01 does not accept notify_url per order.
+    const orderMeta = returnUrl ? { return_url: returnUrl } : undefined;
     phase = "Cashfree order creation";
     const response = await fetch(`${getCashfreeBaseUrl()}/pg/orders`, {
       method: "POST",

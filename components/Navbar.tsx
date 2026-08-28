@@ -517,6 +517,16 @@ export default function Navbar() {
 
             <>
               <Link
+                href="/pricing"
+                className={`mobile-nav-link ${subscriptionPlan === "free" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200" : "border border-indigo-200 bg-indigo-50 text-indigo-700"} rounded-xl px-4 py-3 text-center font-semibold`}
+                onClick={() =>
+                  setMenuOpen(false)
+                }
+              >
+                {subscriptionPlan === "free" ? "✨ Upgrade Plan" : `Current Plan: ${subscriptionPlan}`}
+              </Link>
+
+              <Link
                 href="/profile"
                 className={`mobile-nav-link ${navLink("/profile")}`}
                 onClick={() =>

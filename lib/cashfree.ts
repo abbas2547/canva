@@ -33,8 +33,8 @@ export function getCashfreeBaseUrl(): string {
 }
 
 export function getCashfreeHeaders(): HeadersInit {
-  const appId = getEnvironmentValue("CASHFREE_APP_ID");
-  const secretKey = getEnvironmentValue("CASHFREE_SECRET_KEY");
+  const appId = getCashfreeAppId();
+  const secretKey = getCashfreeSecretKey();
   if (!appId || !secretKey) {
     throw new Error("Cashfree server credentials are not configured.");
   }
@@ -46,6 +46,14 @@ export function getCashfreeHeaders(): HeadersInit {
     "x-client-id": appId,
     "x-client-secret": secretKey,
   };
+}
+
+export function getCashfreeAppId(): string {
+  return getEnvironmentValue("CASHFREE_APP_ID");
+}
+
+export function getCashfreeSecretKey(): string {
+  return getEnvironmentValue("CASHFREE_SECRET_KEY");
 }
 
 export function createCashfreeOrderId(userId: string): string {

@@ -78,11 +78,12 @@ export async function POST(request: Request) {
       requestHost === "localhost" ||
       requestHost === "127.0.0.1" ||
       requestHost === "::1";
-    const returnUrl =
+    const configuredReturnUrl =
       process.env.CASHFREE_RETURN_URL?.trim().replace(/^["']|["']$/g, "") ||
-      (!isLocalOrigin
-        ? `${origin}/pricing?payment=complete&order_id=${encodeURIComponent(orderId)}`
-        : undefined);
+      (!isLocalOrigin ? `${origin}/pricing` : undefined);
+    const returnUrl = configuredReturnUrl
+      ? `${configuredReturnUrl}${configuredReturnUrl.includes("?") ? "&" : "?"}payment=complete&order_id=${encodeURIComponent(orderId)}`
+      : undefined;
     // Cashfree API version 2023-08-01 does not accept notify_url per order.
     const orderMeta = returnUrl ? { return_url: returnUrl } : undefined;
     phase = "Cashfree order creation";

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Script from "next/script";
 import { CheckCircle2, Loader2, Phone, X } from "lucide-react";
 import toast from "react-hot-toast";
@@ -80,6 +80,7 @@ const comparisonRows: Array<{
 export default function PricingPage() {
   const { user, subscriptionPlan, loading: authLoading, subscriptionLoading } = useAuth();
   const router = useRouter();
+  const verifiedReturnOrderRef = useRef<string | null>(null);
   const [cashfreeLoadState, setCashfreeLoadState] = useState<CashfreeLoadState>("loading");
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null);
   const [customerPhone, setCustomerPhone] = useState("");
@@ -101,7 +102,7 @@ export default function PricingPage() {
     setPaymentStatus("idle");
   };
 
-  const verifyPayment = async (orderId: string) => {
+  const verifyPayment = useCallback(async (orderId: string) => {
     if (!user) return { success: false, status: "failed" as const, error: "Authentication required." };
     const token = await user.getIdToken();
     const response = await fetch("/api/payments/verify", {
@@ -118,7 +119,44 @@ export default function PricingPage() {
       throw new Error(result.error || "Payment verification failed.");
     }
     return result;
-  };
+  }, [user]);
+
+  useEffect(() => {
+    const orderId = new URLSearchParams(window.location.search).get("order_id");
+    if (
+      !orderId ||
+      !user ||
+      authLoading ||
+      subscriptionLoading ||
+      verifiedReturnOrderRef.current === orderId
+    ) {
+      return;
+    }
+
+    verifiedReturnOrderRef.current = orderId;
+    setPaymentStatus("processing");
+    void verifyPayment(orderId)
+      .then((verification) => {
+        if (verification.success && verification.status === "active") {
+          setPaymentStatus("success");
+          toast.success("Payment successful! Your plan is active.");
+        } else if (verification.status === "failed") {
+          setPaymentStatus("failed");
+          toast.error("Payment failed. Please try again.");
+        } else {
+          setPaymentStatus("pending");
+          toast("Your payment is being verified. We’ll update your account shortly.");
+        }
+      })
+      .catch((error) => {
+        console.error("Return payment verification error:", error);
+        setPaymentStatus("failed");
+        toast.error("Payment verification failed. Please try again.");
+      })
+      .finally(() => {
+        router.replace("/pricing");
+      });
+  }, [authLoading, router, subscriptionLoading, user, verifyPayment]);
 
   const handleCheckout = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

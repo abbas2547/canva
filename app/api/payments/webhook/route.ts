@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { getAdminServices } from "@/lib/firebase-admin";
-import { PAID_PLANS, PaidPlanId } from "@/lib/cashfree";
+import { getCashfreeSecretKey, PAID_PLANS, PaidPlanId } from "@/lib/cashfree";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ function isValidSignature(
   timestamp: string | null,
   signature: string | null
 ) {
-  const secret = process.env.CASHFREE_SECRET_KEY;
+  const secret = getCashfreeSecretKey();
   if (!secret || !timestamp || !signature) return false;
   const timestampNumber = Number(timestamp);
   if (!Number.isFinite(timestampNumber) || Math.abs(Date.now() - timestampNumber) > 5 * 60 * 1000) {
